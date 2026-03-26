@@ -25,7 +25,7 @@ import {
 
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Danh mục", href: "/dashboard/danh-muc", icon: FolderTree },
+  { title: "Danh mục", href: "/dashboard/categories", icon: FolderTree },
   { title: "Chi tiêu", href: "/dashboard/chi-tieu", icon: Receipt },
   { title: "Tiết kiệm", href: "/dashboard/tiet-kiem", icon: PiggyBank },
 ] as const;
