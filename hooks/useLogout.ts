@@ -14,7 +14,7 @@ export function useLogout() {
     setIsPending(true);
     try {
       await signOutUser();
-      toast.success("Signed out successfully.");
+      toast.success("Đăng xuất thành công.");
       router.push("/login");
     } catch (error: unknown) {
       toast.error(mapFirebaseAuthError(error));

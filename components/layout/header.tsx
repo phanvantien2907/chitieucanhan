@@ -15,6 +15,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  useCommandPaletteShortcutLabel,
+  useCommandSearch,
+} from "@/components/layout/command-search";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +29,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -37,6 +40,8 @@ import {
 export function DashboardHeader() {
   const { logout, isPending } = useLogout();
   const { isLoading: authLoading, displayLabel, email, initials } = useAuth();
+  const { setOpen: openCommandSearch } = useCommandSearch();
+  const shortcutLabel = useCommandPaletteShortcutLabel();
   const [logoutOpen, setLogoutOpen] = React.useState(false);
 
   return (
@@ -54,21 +59,26 @@ export function DashboardHeader() {
           <Separator orientation="vertical" className="hidden h-6 md:block" />
         </div>
         <div className="relative flex min-w-0 flex-1 max-w-md">
-          <Search
-            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 opacity-80 transition-opacity hover:opacity-80"
-            aria-hidden
-          />
           <Tooltip>
             <TooltipTrigger asChild>
-              <Input
-                type="search"
-                placeholder="Tìm kiếm giao dịch, danh mục…"
-                className="h-9 w-full cursor-text rounded-lg border-border/80 bg-muted/40 pl-9 shadow-none transition-colors duration-200 hover:bg-muted/60 focus-visible:bg-background md:max-w-sm"
-                aria-label="Tìm kiếm"
-              />
+              <Button
+                type="button"
+                variant="outline"
+                className="text-muted-foreground hover:text-foreground h-9 w-full cursor-pointer justify-start gap-2 rounded-lg border-border/80 bg-muted/40 px-2.5 text-left font-normal shadow-none transition-colors duration-200 hover:bg-muted/60 md:max-w-sm"
+                aria-label="Mở tìm kiếm điều hướng"
+                onClick={() => openCommandSearch(true)}
+              >
+                <Search className="size-4 shrink-0 opacity-80" aria-hidden />
+                <span className="truncate">
+                  Tìm kiếm trang…
+                </span>
+                <kbd className="text-muted-foreground pointer-events-none ml-auto hidden h-5 items-center gap-0.5 rounded border bg-background px-1.5 font-mono text-[10px] font-medium sm:inline-flex">
+                  {shortcutLabel}
+                </kbd>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              Tìm kiếm giao dịch và danh mục
+              Tìm kiếm ({shortcutLabel})
             </TooltipContent>
           </Tooltip>
         </div>

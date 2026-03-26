@@ -146,3 +146,37 @@ export async function verifyPin(
   await updateDoc(ref, patch);
   return "wrong";
 }
+
+export type ChangePinResult =
+  | "ok"
+  | "wrong"
+  | "locked"
+  | "no_pin"
+  | "same_pin";
+
+/**
+ * Change security PIN: verify current PIN (same lock / attempt rules as {@link verifyPin}),
+ * then store new SHA-256 hash and reset lock state.
+ */
+export async function changeSecurityPin(
+  uid: string,
+  currentPin: string,
+  newPin: string
+): Promise<ChangePinResult> {
+  if (currentPin === newPin) {
+    return "same_pin";
+  }
+  const verified = await verifyPin(uid, currentPin);
+  if (verified !== "ok") {
+    return verified;
+  }
+  const newHash = await hashPin(uid, newPin);
+  const ref = doc(db, USER_SECURITY_COLLECTION, uid);
+  await updateDoc(ref, {
+    pin: newHash,
+    failedAttempts: 0,
+    lockUntil: null,
+    updatedAt: serverTimestamp(),
+  });
+  return "ok";
+}

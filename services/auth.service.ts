@@ -1,8 +1,11 @@
 import {
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  updatePassword,
   type User,
   type UserCredential,
 } from "firebase/auth";
@@ -156,6 +159,34 @@ export async function signOutUser(): Promise<void> {
   await signOut(auth);
 }
 
+/** `true` if the user can sign in with email + password (not Google-only). */
+export function userHasPasswordProvider(user: User): boolean {
+  return user.providerData.some((p) => p.providerId === "password");
+}
+
+/**
+ * Re-authenticate with current password, then set a new password.
+ * Required for Firebase email/password accounts.
+ */
+export async function changePasswordWithCurrent(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  const user = auth.currentUser;
+  if (!user?.email) {
+    throw new Error("Không tìm thấy tài khoản hoặc email.");
+  }
+  if (!userHasPasswordProvider(user)) {
+    throw new Error(
+      "Tài khoản đăng nhập bằng Google. Đổi mật khẩu trong tài khoản Google."
+    );
+  }
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, credential);
+  await updatePassword(user, newPassword);
+  await persistAuthSessionCookie(user);
+}
+
 /** Snapshot of Firebase Auth fields needed in the UI (no Firebase types leaked to components). */
 export type AuthUserSnapshot = {
   uid: string;
@@ -271,4 +302,28 @@ export function mapLoginErrorToMessage(error: unknown): string {
 /** Legacy name for generic Firebase auth errors (e.g. logout). */
 export function mapFirebaseAuthError(error: unknown): string {
   return mapLoginErrorToMessage(error);
+}
+
+export function mapPasswordChangeError(error: unknown): string {
+  if (error instanceof FirebaseError) {
+    switch (error.code) {
+      case "auth/wrong-password":
+      case "auth/invalid-credential":
+        return "Mật khẩu hiện tại không đúng.";
+      case "auth/weak-password":
+        return "Mật khẩu mới quá yếu. Dùng ít nhất 6 ký tự và kết hợp ký tự mạnh hơn.";
+      case "auth/requires-recent-login":
+        return "Phiên hết hạn. Đăng xuất và đăng nhập lại, rồi thử đổi mật khẩu.";
+      case "auth/too-many-requests":
+        return "Quá nhiều lần thử. Vui lòng thử lại sau.";
+      case "auth/network-request-failed":
+        return "Lỗi mạng. Kiểm tra kết nối.";
+      default:
+        return error.message || "Không thể đổi mật khẩu.";
+    }
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Không thể đổi mật khẩu. Vui lòng thử lại.";
 }
