@@ -83,6 +83,11 @@ export function SavingsPinGate() {
     <>
       <SavingsPinDialog
         open={showPinDialog}
+        onOpenChange={(next) => {
+          if (!next) {
+            return;
+          }
+        }}
         mode={pinMode}
         uid={uid}
         onVerified={handleVerified}

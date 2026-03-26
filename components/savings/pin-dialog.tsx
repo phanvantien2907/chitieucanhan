@@ -24,6 +24,9 @@ const LOCK_TOAST =
 
 type SavingsPinDialogProps = {
   open: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** When true, user can close with overlay/Escape (e.g. dashboard unlock). */
+  dismissible?: boolean;
   mode: "set" | "verify";
   uid: string;
   onVerified: () => void;
@@ -31,6 +34,8 @@ type SavingsPinDialogProps = {
 
 export function SavingsPinDialog({
   open,
+  onOpenChange,
+  dismissible = false,
   mode,
   uid,
   onVerified,
@@ -87,12 +92,14 @@ export function SavingsPinDialog({
   };
 
   return (
-    <Dialog open={open} modal>
+    <Dialog open={open} onOpenChange={onOpenChange} modal>
       <DialogContent
         className="sm:max-w-md"
-        showCloseButton={false}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        showCloseButton={dismissible}
+        onPointerDownOutside={
+          dismissible ? undefined : (e) => e.preventDefault()
+        }
+        onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
       >
         <DialogHeader className="text-center sm:text-center">
           <DialogTitle className="text-lg">
@@ -106,9 +113,11 @@ export function SavingsPinDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="savings-pin">PIN (6 số)</Label>
+            <Label htmlFor={dismissible ? "dashboard-savings-pin" : "savings-pin"}>
+              PIN (6 số)
+            </Label>
             <Input
-              id="savings-pin"
+              id={dismissible ? "dashboard-savings-pin" : "savings-pin"}
               type="password"
               inputMode="numeric"
               autoComplete="off"

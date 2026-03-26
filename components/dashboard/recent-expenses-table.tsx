@@ -1,11 +1,18 @@
+"use client";
+
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -14,71 +21,50 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { RecentExpenseRow } from "@/hooks/useAnalytics";
+import type { ExpenseDoc } from "@/services/expense.service";
 
-const expenses = [
-  {
-    id: "1",
-    date: "26/03/2025",
-    category: "Ăn uống",
-    note: "Cà phê & bữa trưa",
-    amount: "185.000 ₫",
-    status: "posted" as const,
-  },
-  {
-    id: "2",
-    date: "25/03/2025",
-    category: "Di chuyển",
-    note: "Xăng xe",
-    amount: "420.000 ₫",
-    status: "posted" as const,
-  },
-  {
-    id: "3",
-    date: "24/03/2025",
-    category: "Hóa đơn",
-    note: "Điện tháng 3",
-    amount: "612.000 ₫",
-    status: "posted" as const,
-  },
-  {
-    id: "4",
-    date: "23/03/2025",
-    category: "Giải trí",
-    note: "Phim & streaming",
-    amount: "99.000 ₫",
-    status: "pending" as const,
-  },
-  {
-    id: "5",
-    date: "22/03/2025",
-    category: "Sức khỏe",
-    note: "Khám định kỳ",
-    amount: "350.000 ₫",
-    status: "posted" as const,
-  },
-] as const;
+const RECENT_LIMIT = 5;
 
-function StatusBadge({
-  status,
-}: {
-  status: (typeof expenses)[number]["status"];
-}) {
-  const label = status === "posted" ? "Đã ghi" : "Chờ duyệt";
-  const variant = status === "posted" ? "secondary" : "outline";
-  return (
-    <Badge variant={variant} className="font-normal">
-      {label}
-    </Badge>
-  );
+/** `dd/MM/yyyy HH:mm` — aligned with chi tiêu table. */
+function formatDateTime(ts: ExpenseDoc["createdAt"]): string {
+  if (!ts || typeof ts.toDate !== "function") {
+    return "—";
+  }
+  const d = ts.toDate();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(d.getFullYear());
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
-export function RecentExpensesTable() {
+function formatAmount(amount: number): string {
+  return `${amount.toLocaleString("vi-VN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })} ₫`;
+}
+
+type RecentExpensesTableProps = {
+  rows: RecentExpenseRow[];
+  loading: boolean;
+  isEmpty: boolean;
+};
+
+export function RecentExpensesTable({
+  rows,
+  loading,
+  isEmpty,
+}: RecentExpensesTableProps) {
   return (
     <Card className="border-border/80 shadow-sm transition-shadow duration-200 hover:shadow-sm">
       <CardHeader>
         <CardTitle>Chi tiêu gần đây</CardTitle>
         <CardDescription>
-          Các khoản đã ghi nhận trong tài khoản của bạn.
+          {RECENT_LIMIT} giao dịch mới nhất (đang hoạt động), cập nhật theo thời
+          gian thực.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 sm:px-6">
@@ -93,29 +79,69 @@ export function RecentExpensesTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {expenses.map((row) => (
-              <TableRow
-                key={row.id}
-                className="group transition-colors duration-150"
-              >
-                <TableCell className="text-muted-foreground group-hover:text-foreground pl-6 text-xs font-medium whitespace-nowrap sm:text-sm">
-                  {row.date}
-                </TableCell>
-                <TableCell className="font-medium">{row.category}</TableCell>
-                <TableCell className="text-muted-foreground hidden max-w-[140px] truncate sm:table-cell">
-                  {row.note}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={row.status} />
-                </TableCell>
-                <TableCell className="pr-6 text-right font-medium tabular-nums">
-                  {row.amount}
+            {loading ? (
+              Array.from({ length: RECENT_LIMIT }).map((_, i) => (
+                <TableRow key={i} className="hover:bg-transparent">
+                  <TableCell className="pl-6">
+                    <Skeleton className="h-4 w-28" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </TableCell>
+                  <TableCell className="pr-6 text-right">
+                    <Skeleton className="ml-auto h-4 w-20" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : isEmpty ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={5}
+                  className="text-muted-foreground py-12 text-center text-sm"
+                >
+                  Chưa có khoản chi tiêu nào.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              rows.map(({ id, expense, categoryName }) => (
+                <TableRow
+                  key={id}
+                  className="group transition-colors duration-150"
+                >
+                  <TableCell className="text-muted-foreground group-hover:text-foreground pl-6 text-xs font-medium whitespace-nowrap sm:text-sm">
+                    {formatDateTime(expense.createdAt)}
+                  </TableCell>
+                  <TableCell className="font-medium">{categoryName}</TableCell>
+                  <TableCell className="text-muted-foreground hidden max-w-[140px] truncate sm:table-cell">
+                    {expense.note?.trim() ? expense.note : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="font-normal">
+                      Hoạt động
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="pr-6 text-right font-medium tabular-nums">
+                    {formatAmount(expense.amount)}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>
+      {!loading && !isEmpty ? (
+        <CardFooter className="flex justify-end border-t px-6 pt-4 pb-6">
+          <Button variant="outline" size="sm" className="cursor-pointer" asChild>
+            <Link href="/dashboard/expenses">Xem tất cả chi tiêu</Link>
+          </Button>
+        </CardFooter>
+      ) : null}
     </Card>
   );
 }

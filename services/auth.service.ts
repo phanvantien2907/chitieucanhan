@@ -20,6 +20,8 @@ import {
 import { FirebaseError } from "firebase/app";
 
 import { AUTH_SESSION_COOKIE_NAME } from "@/lib/auth-session";
+import { clearDashboardSavingsUnlockedCookie } from "@/lib/dashboard-savings-pin-session";
+import { clearSavingsPinVerifiedCookie } from "@/lib/savings-pin-session";
 import { auth, db, googleAuthProvider } from "@/lib/firebase";
 
 const USERS_COLLECTION = "users";
@@ -156,6 +158,8 @@ export async function loginWithGoogleAndProfileCheck(): Promise<UserCredential> 
 
 export async function signOutUser(): Promise<void> {
   clearAuthSessionCookie();
+  clearDashboardSavingsUnlockedCookie();
+  clearSavingsPinVerifiedCookie();
   await signOut(auth);
 }
 
