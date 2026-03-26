@@ -26,8 +26,8 @@ import {
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Danh mục", href: "/dashboard/categories", icon: FolderTree },
-  { title: "Chi tiêu", href: "/dashboard/chi-tieu", icon: Receipt },
-  { title: "Tiết kiệm", href: "/dashboard/tiet-kiem", icon: PiggyBank },
+  { title: "Chi tiêu", href: "/dashboard/expenses", icon: Receipt },
+  { title: "Tiết kiệm", href: "/dashboard/savings", icon: PiggyBank },
 ] as const;
 
 function isActivePath(pathname: string, href: string): boolean {

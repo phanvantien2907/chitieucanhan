@@ -84,7 +84,7 @@ export function CategoryForm({
           name: values.name,
           description: values.description,
         });
-        toast.success("Đã tạo danh mục.");
+        toast.success("Tạo danh mục thành công.");
       } else if (category) {
         await updateCategory(uid, category.id, {
           name: values.name,
