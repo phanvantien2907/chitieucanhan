@@ -24,7 +24,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type {
+  CategoryDoc,
+  CategorySelectOption,
+} from "@/services/category.service";
 import { createSaving, updateSaving, type SavingDoc } from "@/services/savings.service";
 
 import { formatThousandsInput, parseAmountToNumber } from "@/components/expenses/expense-form";
@@ -35,6 +46,7 @@ const savingsFormSchema = z.object({
     .min(1, "Vui lòng nhập số tiền")
     .refine((s) => parseAmountToNumber(s) > 0, "Số tiền không hợp lệ"),
   note: z.string().max(500),
+  categoryId: z.string().min(1, "Chọn danh mục"),
 });
 
 export type SavingsFormValues = z.infer<typeof savingsFormSchema>;
@@ -45,6 +57,9 @@ type SavingsFormProps = {
   mode: "create" | "edit";
   uid: string;
   saving: SavingDoc | null;
+  activeCategories: CategoryDoc[];
+  categorySelectOptions: CategorySelectOption[];
+  categoriesLoading: boolean;
   onSuccess: () => void;
 };
 
@@ -54,6 +69,9 @@ export function SavingsForm({
   mode,
   uid,
   saving,
+  activeCategories,
+  categorySelectOptions,
+  categoriesLoading,
   onSuccess,
 }: SavingsFormProps) {
   const form = useForm<SavingsFormValues>({
@@ -61,6 +79,7 @@ export function SavingsForm({
     defaultValues: {
       amount: "",
       note: "",
+      categoryId: "",
     },
     mode: "onSubmit",
   });
@@ -70,17 +89,25 @@ export function SavingsForm({
       return;
     }
     if (mode === "edit" && saving) {
+      const validCategory = activeCategories.some(
+        (c) => c.id === saving.categoryId
+      );
       form.reset({
         amount: formatThousandsInput(String(Math.round(saving.amount))),
         note: saving.note ?? "",
+        categoryId:
+          validCategory && saving.categoryId
+            ? saving.categoryId
+            : "",
       });
     } else {
       form.reset({
         amount: "",
         note: "",
+        categoryId: "",
       });
     }
-  }, [open, saving, mode, form]);
+  }, [open, saving, mode, form, activeCategories]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     const amount = parseAmountToNumber(values.amount);
@@ -89,12 +116,14 @@ export function SavingsForm({
         await createSaving(uid, {
           amount,
           note: values.note,
+          categoryId: values.categoryId,
         });
         toast.success("Đã tạo khoản tiết kiệm.");
       } else if (saving) {
         await updateSaving(uid, saving.id, {
           amount,
           note: values.note,
+          categoryId: values.categoryId,
         });
         toast.success("Đã cập nhật.");
       }
@@ -108,6 +137,7 @@ export function SavingsForm({
   });
 
   const submitting = form.formState.isSubmitting;
+  const noCategories = !categoriesLoading && activeCategories.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,7 +148,7 @@ export function SavingsForm({
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
-              ? "Nhập số tiền và ghi chú."
+              ? "Nhập số tiền, ghi chú và chọn danh mục."
               : "Cập nhật thông tin khoản tiết kiệm."}
           </DialogDescription>
         </DialogHeader>
@@ -143,6 +173,49 @@ export function SavingsForm({
                       }}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Danh mục</FormLabel>
+                  <Select
+                    disabled={categoriesLoading || noCategories}
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full cursor-pointer disabled:cursor-not-allowed">
+                        <SelectValue
+                          placeholder={
+                            categoriesLoading
+                              ? "Đang tải danh mục…"
+                              : noCategories
+                                ? "Chưa có danh mục"
+                                : "Chọn danh mục"
+                          }
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="max-h-72 overflow-y-auto p-1">
+                      {categorySelectOptions.map((o) => (
+                        <SelectItem
+                          key={o.value}
+                          value={o.value}
+                          className="cursor-pointer rounded-md text-sm"
+                          style={{
+                            paddingLeft: `calc(0.75rem + ${o.depth} * 1rem)`,
+                          }}
+                        >
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -177,7 +250,7 @@ export function SavingsForm({
               </Button>
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || noCategories}
                 className="cursor-pointer disabled:cursor-not-allowed"
               >
                 {submitting ? "Đang lưu…" : mode === "create" ? "Tạo" : "Lưu"}

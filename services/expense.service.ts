@@ -13,10 +13,10 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 
+import { assertCategoryValidForUser } from "@/services/category.service";
 import { db } from "@/lib/firebase";
 
 const EXPENSES_COLLECTION = "expenses";
-const CATEGORIES_COLLECTION = "categories";
 
 const CODE_PREFIX = "CT";
 const CODE_RANDOM_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -146,29 +146,11 @@ async function assertExpenseOwner(uid: string, expenseId: string): Promise<void>
   }
 }
 
-async function assertCategoryValidForExpense(
-  uid: string,
-  categoryId: string
-): Promise<void> {
-  const ref = doc(db, CATEGORIES_COLLECTION, categoryId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) {
-    throw new Error("Category not found.");
-  }
-  const data = snap.data() as { userId?: string; deletedAt?: Timestamp | null };
-  if (data.userId !== uid) {
-    throw new Error("Invalid category.");
-  }
-  if (data.deletedAt != null) {
-    throw new Error("Cannot use a deleted category.");
-  }
-}
-
 export async function createExpense(
   uid: string,
   input: { amount: number; note: string; categoryId: string }
 ): Promise<void> {
-  await assertCategoryValidForExpense(uid, input.categoryId);
+  await assertCategoryValidForUser(uid, input.categoryId);
   const note = input.note.trim();
   const code = await generateExpenseCode();
   await addDoc(collection(db, EXPENSES_COLLECTION), {
@@ -188,7 +170,7 @@ export async function updateExpense(
   input: { amount: number; note: string; categoryId: string }
 ): Promise<void> {
   await assertExpenseOwner(uid, expenseId);
-  await assertCategoryValidForExpense(uid, input.categoryId);
+  await assertCategoryValidForUser(uid, input.categoryId);
   const ref = doc(db, EXPENSES_COLLECTION, expenseId);
   const note = input.note.trim();
   await updateDoc(ref, {

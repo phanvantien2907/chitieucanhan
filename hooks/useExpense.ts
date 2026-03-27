@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
 import {
+  buildCategorySelectOptions,
   type CategoryDoc,
   subscribeCategories,
 } from "@/services/category.service";
@@ -103,6 +104,11 @@ export function useExpenses() {
     return m;
   }, [allCategories]);
 
+  const categorySelectOptions = useMemo(
+    () => buildCategorySelectOptions(activeCategories),
+    [activeCategories]
+  );
+
   const filteredSorted = useMemo(() => {
     let list = [...allExpenses];
 
@@ -168,6 +174,7 @@ export function useExpenses() {
     goNext,
     activeCategories,
     categoryNameById,
+    categorySelectOptions,
     isEmpty: !expensesLoading && filteredSorted.length === 0,
   };
 }

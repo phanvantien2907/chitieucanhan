@@ -1,20 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
 import {
+  buildCategorySelectOptions,
+  buildCategoryTree,
+  buildCategoryTreeSorted,
+  sortCategoriesTreeOrder,
   type CategoryDoc,
+  type CategoryTreeNode,
   subscribeCategories,
 } from "@/services/category.service";
 
 export type CategoryFilterMode = "newest" | "oldest" | "deleted" | "active";
 
-const PAGE_SIZE = 5;
+export type CategoryHierarchyFilter = "all" | "root" | "sub";
 
 function ms(ts: CategoryDoc["createdAt"]): number {
   return ts?.toMillis?.() ?? 0;
+}
+
+function msUpdated(c: CategoryDoc): number {
+  return ms(c.updatedAt ?? c.createdAt);
 }
 
 function sortByCreatedDesc(a: CategoryDoc, b: CategoryDoc): number {
@@ -32,18 +41,15 @@ export function useCategories() {
   const [allCategories, setAllCategories] = useState<CategoryDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<CategoryFilterMode>("newest");
+  const [hierarchyFilter, setHierarchyFilter] =
+    useState<CategoryHierarchyFilter>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(search), 300);
     return () => window.clearTimeout(t);
   }, [search]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [filter, debouncedSearch]);
 
   useEffect(() => {
     if (!uid) {
@@ -67,6 +73,20 @@ export function useCategories() {
     return unsub;
   }, [uid]);
 
+  const siblingCompare = useMemo(() => {
+    switch (filter) {
+      case "oldest":
+        return sortByCreatedAsc;
+      case "deleted":
+        return (a: CategoryDoc, b: CategoryDoc) =>
+          msUpdated(b) - msUpdated(a);
+      case "active":
+      case "newest":
+      default:
+        return sortByCreatedDesc;
+    }
+  }, [filter]);
+
   const filteredSorted = useMemo(() => {
     let list = [...allCategories];
 
@@ -80,69 +100,74 @@ export function useCategories() {
       );
     }
 
+    switch (hierarchyFilter) {
+      case "root":
+        list = list.filter((c) => c.parentId == null);
+        break;
+      case "sub":
+        list = list.filter((c) => c.parentId != null);
+        break;
+      case "all":
+      default:
+        break;
+    }
+
     switch (filter) {
       case "active":
         list = list.filter((c) => c.deletedAt == null);
-        list.sort(sortByCreatedDesc);
         break;
       case "deleted":
         list = list.filter((c) => c.deletedAt != null);
-        list.sort(
-          (a, b) =>
-            ms(b.updatedAt ?? b.createdAt) - ms(a.updatedAt ?? a.createdAt)
-        );
         break;
       case "oldest":
-        list.sort(sortByCreatedAsc);
-        break;
       case "newest":
       default:
-        list.sort(sortByCreatedDesc);
         break;
     }
 
-    return list;
-  }, [allCategories, filter, debouncedSearch]);
+    return sortCategoriesTreeOrder(list, siblingCompare);
+  }, [allCategories, filter, debouncedSearch, hierarchyFilter, siblingCompare]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
+  /** Memoized tree for expand/collapse table (matches filter + sort). */
+  const categoryTreeForTable = useMemo(
+    (): CategoryTreeNode[] =>
+      buildCategoryTreeSorted(filteredSorted, siblingCompare),
+    [filteredSorted, siblingCompare]
+  );
 
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+  const categoryTree = useMemo(
+    () => buildCategoryTree(allCategories.filter((c) => c.deletedAt == null)),
+    [allCategories]
+  );
 
-  const paginated = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredSorted.slice(start, start + PAGE_SIZE);
-  }, [filteredSorted, page]);
+  const activeCategoriesForForms = useMemo(
+    () => allCategories.filter((c) => c.deletedAt == null),
+    [allCategories]
+  );
 
-  const goPrev = useCallback(() => {
-    setPage((p) => Math.max(1, p - 1));
-  }, []);
-
-  const goNext = useCallback(() => {
-    setPage((p) => Math.min(totalPages, p + 1));
-  }, [totalPages]);
+  const categorySelectOptions = useMemo(
+    () => buildCategorySelectOptions(activeCategoriesForForms),
+    [activeCategoriesForForms]
+  );
 
   return {
     uid,
     authLoading,
-    categories: paginated,
+    allCategories,
+    categoryTreeForTable,
     allCount: allCategories.length,
     filteredCount: filteredSorted.length,
-    totalPages,
-    page,
-    pageSize: PAGE_SIZE,
     loading: authLoading || loading,
     filter,
     setFilter,
+    hierarchyFilter,
+    setHierarchyFilter,
     search,
     setSearch,
-    setPage,
-    goPrev,
-    goNext,
-    isEmpty: !loading && filteredSorted.length === 0,
+    debouncedSearch,
+    isEmpty: !authLoading && !loading && filteredSorted.length === 0,
+    categoryTree,
+    categorySelectOptions,
+    activeCategoriesForForms,
   };
 }
-

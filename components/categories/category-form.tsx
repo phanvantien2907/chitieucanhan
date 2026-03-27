@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -24,9 +24,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  buildCategorySelectOptions,
   createCategory,
+  getDescendantCategoryIds,
   updateCategory,
   type CategoryDoc,
 } from "@/services/category.service";
@@ -37,6 +46,7 @@ const categoryFormSchema = z.object({
     .min(1, "Vui lòng nhập tên danh mục")
     .max(200, "Tối đa 200 ký tự"),
   description: z.string().max(2000, "Tối đa 2000 ký tự"),
+  parentId: z.string().optional(),
 });
 
 export type CategoryFormValues = z.infer<typeof categoryFormSchema>;
@@ -47,6 +57,7 @@ type CategoryFormProps = {
   mode: "create" | "edit";
   uid: string;
   category: CategoryDoc | null;
+  allCategories?: CategoryDoc[];
   onSuccess: () => void;
 };
 
@@ -56,6 +67,7 @@ export function CategoryForm({
   mode,
   uid,
   category,
+  allCategories = [],
   onSuccess,
 }: CategoryFormProps) {
   const form = useForm<CategoryFormValues>({
@@ -63,9 +75,44 @@ export function CategoryForm({
     defaultValues: {
       name: "",
       description: "",
+      parentId: "",
     },
     mode: "onSubmit",
   });
+
+  const parentExcludeIds = useMemo(() => {
+    if (!category || mode === "create") {
+      return new Set<string>();
+    }
+    const s = new Set<string>([category.id]);
+    for (const id of getDescendantCategoryIds(category.id, allCategories)) {
+      s.add(id);
+    }
+    return s;
+  }, [category, mode, allCategories]);
+
+  const parentOptions = useMemo(() => {
+    const base = buildCategorySelectOptions(allCategories, {
+      excludeIds: parentExcludeIds,
+    });
+    if (category?.parentId) {
+      const exists = base.some((o) => o.value === category.parentId);
+      if (!exists) {
+        const p = allCategories.find((c) => c.id === category.parentId);
+        if (p) {
+          return [
+            {
+              value: p.id,
+              label: `${p.name} (đã xóa)`,
+              depth: 0,
+            },
+            ...base,
+          ];
+        }
+      }
+    }
+    return base;
+  }, [allCategories, parentExcludeIds, category]);
 
   useEffect(() => {
     if (!open) {
@@ -74,21 +121,28 @@ export function CategoryForm({
     form.reset({
       name: category?.name ?? "",
       description: category?.description ?? "",
+      parentId: category?.parentId ?? "",
     });
   }, [open, category, form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
+    const parentId =
+      values.parentId != null && values.parentId.trim() !== ""
+        ? values.parentId.trim()
+        : null;
     try {
       if (mode === "create") {
         await createCategory(uid, {
           name: values.name,
           description: values.description,
+          parentId,
         });
         toast.success("Tạo danh mục thành công.");
       } else if (category) {
         await updateCategory(uid, category.id, {
           name: values.name,
           description: values.description,
+          parentId,
         });
         toast.success("Đã cập nhật danh mục.");
       }
@@ -149,6 +203,48 @@ export function CategoryForm({
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="parentId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Danh mục cha</FormLabel>
+                  <Select
+                    onValueChange={(v) =>
+                      field.onChange(v === "__none__" ? "" : v)
+                    }
+                    value={field.value && field.value.length > 0 ? field.value : "__none__"}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full cursor-pointer">
+                        <SelectValue placeholder="Không có (gốc)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="max-h-72 overflow-y-auto p-1">
+                      <SelectItem
+                        value="__none__"
+                        className="cursor-pointer rounded-md text-sm"
+                      >
+                        Danh mục gốc (không có cha)
+                      </SelectItem>
+                      {parentOptions.map((o) => (
+                        <SelectItem
+                          key={o.value}
+                          value={o.value}
+                          className="cursor-pointer rounded-md text-sm"
+                          style={{
+                            paddingLeft: `calc(0.75rem + ${o.depth} * 1rem)`,
+                          }}
+                        >
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

@@ -115,12 +115,19 @@ export function SavingsTable() {
     totalPages,
     page,
     loading,
+    categoriesLoading,
     filter,
     setFilter,
     goPrev,
     goNext,
+    activeCategories,
+    categoryNameById,
+    categorySelectOptions,
     isEmpty,
   } = useSavings();
+
+  const categoryLabel = (categoryId: string) =>
+    categoryNameById.get(categoryId) ?? "—";
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editSaving, setEditSaving] = useState<SavingDoc | null>(null);
@@ -223,6 +230,7 @@ export function SavingsTable() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="text-right">Số tiền</TableHead>
+                  <TableHead className="min-w-[120px]">Danh mục</TableHead>
                   <TableHead className="min-w-[140px]">Ghi chú</TableHead>
                   <TableHead>Ngày tạo</TableHead>
                   <TableHead>Trạng thái</TableHead>
@@ -235,6 +243,9 @@ export function SavingsTable() {
                     <TableRow key={i} className="hover:bg-transparent">
                       <TableCell>
                         <Skeleton className="ml-auto h-4 w-20" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-24" />
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-4 w-36" />
@@ -253,7 +264,7 @@ export function SavingsTable() {
                 ) : isEmpty ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-muted-foreground py-16 text-center text-sm"
                     >
                       {allCount === 0
@@ -271,6 +282,9 @@ export function SavingsTable() {
                       >
                         <TableCell className="text-right font-medium tabular-nums">
                           {formatMoney(row.amount)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground max-w-[min(160px,40vw)] truncate text-sm">
+                          {categoryLabel(row.categoryId)}
                         </TableCell>
                         <TableCell className="max-w-[min(260px,50vw)] whitespace-normal">
                           {row.note?.trim() ? (
@@ -463,6 +477,9 @@ export function SavingsTable() {
             mode="create"
             uid={uid}
             saving={null}
+            activeCategories={activeCategories}
+            categorySelectOptions={categorySelectOptions}
+            categoriesLoading={categoriesLoading}
             onSuccess={() => {}}
           />
           <SavingsForm
@@ -475,6 +492,9 @@ export function SavingsTable() {
             mode="edit"
             uid={uid}
             saving={editSaving}
+            activeCategories={activeCategories}
+            categorySelectOptions={categorySelectOptions}
+            categoriesLoading={categoriesLoading}
             onSuccess={() => setEditSaving(null)}
           />
         </>
@@ -504,6 +524,10 @@ export function SavingsTable() {
                 <dd className="font-medium tabular-nums">
                   {formatMoney(detailSaving.amount)}
                 </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Danh mục</dt>
+                <dd>{categoryLabel(detailSaving.categoryId)}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Ghi chú</dt>

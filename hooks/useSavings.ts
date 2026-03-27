@@ -5,6 +5,11 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
 import {
+  buildCategorySelectOptions,
+  type CategoryDoc,
+  subscribeCategories,
+} from "@/services/category.service";
+import {
   type SavingDoc,
   subscribeSavings,
 } from "@/services/savings.service";
@@ -34,7 +39,9 @@ export function useSavings() {
   const uid = user?.uid ?? null;
 
   const [allSavings, setAllSavings] = useState<SavingDoc[]>([]);
+  const [allCategories, setAllCategories] = useState<CategoryDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [filter, setFilter] = useState<SavingsFilterMode>("newest");
   const [page, setPage] = useState(1);
 
@@ -62,6 +69,45 @@ export function useSavings() {
     );
     return unsub;
   }, [uid]);
+
+  useEffect(() => {
+    if (!uid) {
+      setAllCategories([]);
+      setCategoriesLoading(false);
+      return;
+    }
+    setCategoriesLoading(true);
+    const unsub = subscribeCategories(
+      uid,
+      (next) => {
+        setAllCategories(next);
+        setCategoriesLoading(false);
+      },
+      (err) => {
+        toast.error(err.message || "Không thể tải danh mục.");
+        setCategoriesLoading(false);
+      }
+    );
+    return unsub;
+  }, [uid]);
+
+  const activeCategories = useMemo(
+    () => allCategories.filter((c) => c.deletedAt == null),
+    [allCategories]
+  );
+
+  const categoryNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of allCategories) {
+      m.set(c.id, c.name);
+    }
+    return m;
+  }, [allCategories]);
+
+  const categorySelectOptions = useMemo(
+    () => buildCategorySelectOptions(activeCategories),
+    [activeCategories]
+  );
 
   const filteredSorted = useMemo(() => {
     let list = [...allSavings];
@@ -108,6 +154,8 @@ export function useSavings() {
     setPage((p) => Math.min(totalPages, p + 1));
   }, [totalPages]);
 
+  const categoriesLoadingState = authLoading || categoriesLoading;
+
   return {
     uid,
     authLoading,
@@ -118,11 +166,15 @@ export function useSavings() {
     page,
     pageSize: PAGE_SIZE,
     loading: authLoading || loading,
+    categoriesLoading: categoriesLoadingState,
     filter,
     setFilter,
     setPage,
     goPrev,
     goNext,
+    activeCategories,
+    categoryNameById,
+    categorySelectOptions,
     isEmpty: !authLoading && !loading && filteredSorted.length === 0,
   };
 }

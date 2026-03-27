@@ -32,7 +32,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { CategoryDoc } from "@/services/category.service";
+import type {
+  CategoryDoc,
+  CategorySelectOption,
+} from "@/services/category.service";
 import {
   createExpense,
   updateExpense,
@@ -74,6 +77,7 @@ type ExpenseFormProps = {
   uid: string;
   expense: ExpenseDoc | null;
   activeCategories: CategoryDoc[];
+  categorySelectOptions: CategorySelectOption[];
   categoriesLoading: boolean;
   onSuccess: () => void;
 };
@@ -85,6 +89,7 @@ export function ExpenseForm({
   uid,
   expense,
   activeCategories,
+  categorySelectOptions,
   categoriesLoading,
   onSuccess,
 }: ExpenseFormProps) {
@@ -212,14 +217,17 @@ export function ExpenseForm({
                         />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      {activeCategories.map((c) => (
+                    <SelectContent className="max-h-72 overflow-y-auto p-1">
+                      {categorySelectOptions.map((o) => (
                         <SelectItem
-                          key={c.id}
-                          value={c.id}
-                          className="cursor-pointer"
+                          key={o.value}
+                          value={o.value}
+                          className="cursor-pointer rounded-md text-sm"
+                          style={{
+                            paddingLeft: `calc(0.75rem + ${o.depth} * 1rem)`,
+                          }}
                         >
-                          {c.name}
+                          {o.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

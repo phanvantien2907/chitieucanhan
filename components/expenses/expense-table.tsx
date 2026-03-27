@@ -123,6 +123,7 @@ export function ExpenseTable() {
     goNext,
     activeCategories,
     categoryNameById,
+    categorySelectOptions,
     isEmpty,
   } = useExpenses();
 
@@ -510,6 +511,7 @@ export function ExpenseTable() {
             uid={uid}
             expense={null}
             activeCategories={activeCategories}
+            categorySelectOptions={categorySelectOptions}
             categoriesLoading={categoriesLoading}
             onSuccess={() => {}}
           />
@@ -524,6 +526,7 @@ export function ExpenseTable() {
             uid={uid}
             expense={editExpense}
             activeCategories={activeCategories}
+            categorySelectOptions={categorySelectOptions}
             categoriesLoading={categoriesLoading}
             onSuccess={() => setEditExpense(null)}
           />

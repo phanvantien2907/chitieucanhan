@@ -12,6 +12,7 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 
+import { assertCategoryValidForUser } from "@/services/category.service";
 import { db } from "@/lib/firebase";
 
 const SAVINGS_COLLECTION = "savings";
@@ -21,6 +22,7 @@ export type SavingDoc = {
   userId: string;
   amount: number;
   note: string;
+  categoryId: string;
   createdAt: Timestamp | null;
   deletedAt: Timestamp | null;
 };
@@ -36,6 +38,7 @@ function mapSavingDoc(docId: string, data: Record<string, unknown>): SavingDoc {
     userId: String(data.userId ?? ""),
     amount: Number.isFinite(amount) ? amount : 0,
     note: String(data.note ?? ""),
+    categoryId: String(data.categoryId ?? ""),
     createdAt: (data.createdAt as Timestamp | null) ?? null,
     deletedAt: (data.deletedAt as Timestamp | null) ?? null,
   };
@@ -88,13 +91,15 @@ async function assertSavingOwner(uid: string, savingId: string): Promise<void> {
 
 export async function createSaving(
   uid: string,
-  input: { amount: number; note: string }
+  input: { amount: number; note: string; categoryId: string }
 ): Promise<void> {
+  await assertCategoryValidForUser(uid, input.categoryId);
   const note = input.note.trim();
   await addDoc(collection(db, SAVINGS_COLLECTION), {
     userId: uid,
     amount: input.amount,
     note,
+    categoryId: input.categoryId,
     createdAt: serverTimestamp(),
     deletedAt: null,
   });
@@ -103,14 +108,16 @@ export async function createSaving(
 export async function updateSaving(
   uid: string,
   savingId: string,
-  input: { amount: number; note: string }
+  input: { amount: number; note: string; categoryId: string }
 ): Promise<void> {
   await assertSavingOwner(uid, savingId);
+  await assertCategoryValidForUser(uid, input.categoryId);
   const ref = doc(db, SAVINGS_COLLECTION, savingId);
   const note = input.note.trim();
   await updateDoc(ref, {
     amount: input.amount,
     note,
+    categoryId: input.categoryId,
   });
 }
 
