@@ -4,10 +4,6 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Filter, PieChart } from "lucide-react";
 
-import { ChartCategory } from "@/components/dashboard/chart-category";
-import { DebtChart } from "@/components/dashboard/debt-chart";
-import { DebtSummary } from "@/components/dashboard/debt-summary";
-import { RecentExpensesTable } from "@/components/dashboard/recent-expenses-table";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { SavingsPinDialog } from "@/components/savings/pin-dialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,6 +55,56 @@ const ChartExpense = dynamic(
         <Skeleton className="h-[min(50vh,280px)] w-full rounded-xl" />
       </div>
     ),
+  }
+);
+
+const ChartCategory = dynamic(
+  () =>
+    import("@/components/dashboard/chart-category").then((m) => m.ChartCategory),
+  {
+    ssr: false,
+    loading: () => (
+      <Skeleton className="h-[min(50vh,280px)] w-full rounded-xl" />
+    ),
+  }
+);
+
+const DebtChart = dynamic(
+  () => import("@/components/dashboard/debt-chart").then((m) => m.DebtChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-[200px] w-full rounded-xl" />
+      </div>
+    ),
+  }
+);
+
+const DebtSummary = dynamic(
+  () =>
+    import("@/components/dashboard/debt-summary").then((m) => m.DebtSummary),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-32 rounded-xl" />
+      </div>
+    ),
+  }
+);
+
+const RecentExpensesTable = dynamic(
+  () =>
+    import("@/components/dashboard/recent-expenses-table").then(
+      (m) => m.RecentExpensesTable
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-48 w-full rounded-xl" />,
   }
 );
 

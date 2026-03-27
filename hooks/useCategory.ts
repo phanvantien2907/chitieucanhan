@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useFirestoreCategoriesQuery } from "@/hooks/useFirestoreQueries";
 import {
   buildCategorySelectOptions,
   buildCategoryTree,
@@ -11,7 +11,6 @@ import {
   sortCategoriesTreeOrder,
   type CategoryDoc,
   type CategoryTreeNode,
-  subscribeCategories,
 } from "@/services/category.service";
 
 export type CategoryFilterMode = "newest" | "oldest" | "deleted" | "active";
@@ -38,8 +37,10 @@ export function useCategories() {
   const { user, isLoading: authLoading } = useAuth();
   const uid = user?.uid ?? null;
 
-  const [allCategories, setAllCategories] = useState<CategoryDoc[]>([]);
-  const [loading, setLoading] = useState(true);
+  const categoriesQuery = useFirestoreCategoriesQuery(uid);
+  const allCategories = categoriesQuery.data ?? [];
+  const loading = authLoading || (!!uid && categoriesQuery.isPending);
+
   const [filter, setFilter] = useState<CategoryFilterMode>("newest");
   const [hierarchyFilter, setHierarchyFilter] =
     useState<CategoryHierarchyFilter>("all");
@@ -50,28 +51,6 @@ export function useCategories() {
     const t = window.setTimeout(() => setDebouncedSearch(search), 300);
     return () => window.clearTimeout(t);
   }, [search]);
-
-  useEffect(() => {
-    if (!uid) {
-      setAllCategories([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const unsub = subscribeCategories(
-      uid,
-      (next) => {
-        setAllCategories(next);
-        setLoading(false);
-      },
-      (err) => {
-        toast.error(err.message || "Không thể tải danh mục.");
-        setLoading(false);
-      }
-    );
-    return unsub;
-  }, [uid]);
 
   const siblingCompare = useMemo(() => {
     switch (filter) {

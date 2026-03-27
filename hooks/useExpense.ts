@@ -1,18 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
 import {
+  useFirestoreCategoriesQuery,
+  useFirestoreExpensesQuery,
+} from "@/hooks/useFirestoreQueries";
+import {
   buildCategorySelectOptions,
   type CategoryDoc,
-  subscribeCategories,
 } from "@/services/category.service";
-import {
-  type ExpenseDoc,
-  subscribeExpenses,
-} from "@/services/expense.service";
+import type { ExpenseDoc } from "@/services/expense.service";
 
 export type ExpenseFilterMode = "newest" | "oldest" | "deleted" | "active";
 
@@ -38,58 +37,21 @@ export function useExpenses() {
   const { user, isLoading: authLoading } = useAuth();
   const uid = user?.uid ?? null;
 
-  const [allExpenses, setAllExpenses] = useState<ExpenseDoc[]>([]);
-  const [allCategories, setAllCategories] = useState<CategoryDoc[]>([]);
-  const [expensesLoading, setExpensesLoading] = useState(true);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const expensesQuery = useFirestoreExpensesQuery(uid);
+  const categoriesQuery = useFirestoreCategoriesQuery(uid);
+
+  const allExpenses = expensesQuery.data ?? [];
+  const allCategories = categoriesQuery.data ?? [];
+
+  const expensesLoading = !!uid && expensesQuery.isPending;
+  const categoriesLoading = !!uid && categoriesQuery.isPending;
+
   const [filter, setFilter] = useState<ExpenseFilterMode>("newest");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     setPage(1);
   }, [filter]);
-
-  useEffect(() => {
-    if (!uid) {
-      setAllExpenses([]);
-      setExpensesLoading(false);
-      return;
-    }
-    setExpensesLoading(true);
-    const unsub = subscribeExpenses(
-      uid,
-      (next) => {
-        setAllExpenses(next);
-        setExpensesLoading(false);
-      },
-      (err) => {
-        toast.error(err.message || "Không thể tải chi tiêu.");
-        setExpensesLoading(false);
-      }
-    );
-    return unsub;
-  }, [uid]);
-
-  useEffect(() => {
-    if (!uid) {
-      setAllCategories([]);
-      setCategoriesLoading(false);
-      return;
-    }
-    setCategoriesLoading(true);
-    const unsub = subscribeCategories(
-      uid,
-      (next) => {
-        setAllCategories(next);
-        setCategoriesLoading(false);
-      },
-      (err) => {
-        toast.error(err.message || "Không thể tải danh mục.");
-        setCategoriesLoading(false);
-      }
-    );
-    return unsub;
-  }, [uid]);
 
   const activeCategories = useMemo(
     () => allCategories.filter((c) => c.deletedAt == null),

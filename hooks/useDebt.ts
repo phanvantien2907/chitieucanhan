@@ -4,10 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
-import {
-  type DebtDoc,
-  subscribeDebts,
-} from "@/services/debt.service";
+import { useFirestoreDebtsQuery } from "@/hooks/useFirestoreQueries";
+import { type DebtDoc } from "@/services/debt.service";
 
 export type DebtFilterMode =
   | "all"
@@ -35,36 +33,16 @@ export function useDebts() {
     dueReminderShown.current = false;
   }, [uid]);
 
-  const [allDebts, setAllDebts] = useState<DebtDoc[]>([]);
-  const [loading, setLoading] = useState(true);
+  const debtsQuery = useFirestoreDebtsQuery(uid);
+  const allDebts = debtsQuery.data ?? [];
+  const loading = !!uid && debtsQuery.isPending;
+
   const [filter, setFilter] = useState<DebtFilterMode>("all");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     setPage(1);
   }, [filter]);
-
-  useEffect(() => {
-    if (!uid) {
-      setAllDebts([]);
-      setLoading(false);
-      dueReminderShown.current = false;
-      return;
-    }
-    setLoading(true);
-    const unsub = subscribeDebts(
-      uid,
-      (next) => {
-        setAllDebts(next);
-        setLoading(false);
-      },
-      (err) => {
-        toast.error(err.message || "Không thể tải khoản nợ.");
-        setLoading(false);
-      }
-    );
-    return unsub;
-  }, [uid]);
 
   useEffect(() => {
     if (authLoading || loading || !uid || dueReminderShown.current) {

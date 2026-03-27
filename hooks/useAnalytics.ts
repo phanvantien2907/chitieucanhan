@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useCallback, useMemo, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
+import {
+  useFirestoreCategoriesQuery,
+  useFirestoreExpensesQuery,
+  useFirestoreSavingsQuery,
+} from "@/hooks/useFirestoreQueries";
 import {
   aggregateByCategory,
   buildBarSeriesLast12Months,
@@ -25,10 +29,7 @@ import {
 } from "@/services/analytics.service";
 import type { CategoryDoc } from "@/services/category.service";
 import type { ExpenseDoc } from "@/services/expense.service";
-import { subscribeCategories } from "@/services/category.service";
-import { subscribeExpenses } from "@/services/expense.service";
 import type { SavingDoc } from "@/services/savings.service";
-import { subscribeSavings } from "@/services/savings.service";
 
 function activeSavingsTotal(savings: SavingDoc[]): number {
   return savings
@@ -69,94 +70,26 @@ export function useAnalytics() {
   const { user, isLoading: authLoading } = useAuth();
   const uid = user?.uid ?? null;
 
-  const [expenses, setExpenses] = useState<ExpenseDoc[]>([]);
-  const [categories, setCategories] = useState<CategoryDoc[]>([]);
-  const [savings, setSavings] = useState<SavingDoc[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const expensesQuery = useFirestoreExpensesQuery(uid);
+  const categoriesQuery = useFirestoreCategoriesQuery(uid);
+  const savingsQuery = useFirestoreSavingsQuery(uid);
+
+  const expenses = expensesQuery.data ?? [];
+  const categories = categoriesQuery.data ?? [];
+  const savings = savingsQuery.data ?? [];
 
   const [viewMode, setViewMode] = useState<AnalyticsViewMode>("month");
   const [selectedMonthKey, setSelectedMonthKey] = useState(currentMonthKey);
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  useEffect(() => {
-    if (!uid) {
-      setExpenses([]);
-      setCategories([]);
-      setSavings([]);
-      setDataLoading(false);
-      return;
-    }
-    setDataLoading(true);
-    let pending = 3;
-    const markFirst = () => {
-      pending -= 1;
-      if (pending <= 0) {
-        setDataLoading(false);
-      }
-    };
-    let firstExp = true;
-    let firstCat = true;
-    let firstSav = true;
-    const u1 = subscribeExpenses(
-      uid,
-      (next) => {
-        setExpenses(next);
-        if (firstExp) {
-          firstExp = false;
-          markFirst();
-        }
-      },
-      (err) => {
-        toast.error(err.message || "Không thể tải chi tiêu.");
-        if (firstExp) {
-          firstExp = false;
-          markFirst();
-        }
-      }
-    );
-    const u2 = subscribeCategories(
-      uid,
-      (next) => {
-        setCategories(next);
-        if (firstCat) {
-          firstCat = false;
-          markFirst();
-        }
-      },
-      (err) => {
-        toast.error(err.message || "Không thể tải danh mục.");
-        if (firstCat) {
-          firstCat = false;
-          markFirst();
-        }
-      }
-    );
-    const u3 = subscribeSavings(
-      uid,
-      (next) => {
-        setSavings(next);
-        if (firstSav) {
-          firstSav = false;
-          markFirst();
-        }
-      },
-      (err) => {
-        toast.error(err.message || "Không thể tải tiết kiệm.");
-        if (firstSav) {
-          firstSav = false;
-          markFirst();
-        }
-      }
-    );
-    return () => {
-      u1();
-      u2();
-      u3();
-    };
-  }, [uid]);
-
   const monthOptions = useMemo(() => generateMonthOptions(), []);
   const yearOptions = useMemo(() => generateYearOptions(), []);
+
+  const dataLoading =
+    !!uid &&
+    (expensesQuery.isPending ||
+      categoriesQuery.isPending ||
+      savingsQuery.isPending);
 
   const barSeries = useMemo((): MonthPoint[] => {
     if (viewMode === "month") {
@@ -232,7 +165,7 @@ export function useAnalytics() {
   const recentExpenseRows = useMemo((): RecentExpenseRow[] => {
     const nameById = new Map(
       categories
-        .filter((c) => c.deletedAt == null)
+        .filter((c: CategoryDoc) => c.deletedAt == null)
         .map((c) => [c.id, c.name] as const)
     );
     const active = expenses
@@ -252,7 +185,7 @@ export function useAnalytics() {
     setSelectedYear(currentYear());
   }, []);
 
-  const loading = authLoading || (uid != null && dataLoading);
+  const loading = authLoading || dataLoading;
 
   const recentExpensesEmpty =
     !loading && recentExpenseRows.length === 0;

@@ -54,3 +54,60 @@ public/                 # Static assets
 - Destructive or irreversible actions without a confirmation dialog.
 - One-off inline styles that fight the Tailwind / shadcn system without reason.
 - Duplicating Firebase initialization outside `lib/firebase.ts`.
+
+## Performance & Caching (CRITICAL)
+
+This project MUST be optimized for fast loading and smooth UX.
+
+--------------------------------------------------
+
+### 🚀 Core principles
+
+- DO NOT block UI rendering while fetching data
+- ALWAYS cache data after first fetch
+- MINIMIZE Firebase calls
+- PRIORITIZE perceived performance (instant UI)
+
+--------------------------------------------------
+
+### 📦 Data fetching strategy
+
+Use **@tanstack/react-query** for ALL data fetching.
+
+#### Rules:
+
+- NEVER use `useEffect` + manual fetch
+- ALWAYS use `useQuery` / `useMutation`
+
+#### Default config:
+
+- staleTime: 5 minutes
+- cacheTime: 10 minutes
+- refetchOnWindowFocus: false
+
+--------------------------------------------------
+
+### 🧠 Caching layer
+
+- Cache data in memory using React Query
+- Optionally persist to `localStorage` for faster reload
+
+#### Rule:
+
+- First load → fetch from Firebase
+- Next loads → use cache instantly
+
+--------------------------------------------------
+
+### ⚡ Parallel fetching
+
+- ALWAYS fetch data in parallel when possible
+
+Example:
+
+```ts
+await Promise.all([
+  getCategories(),
+  getExpenses(),
+  getDebts()
+])

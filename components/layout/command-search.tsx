@@ -32,7 +32,7 @@ type NavRoute = {
 /** Static routes — memoized by module scope (no per-render allocation). */
 const NAV_ROUTES: readonly NavRoute[] = [
   {
-    title: "Dashboard",
+    title: "Trang chủ",
     href: "/dashboard",
     search: "dashboard trang chủ home tổng quan",
     Icon: Home,
