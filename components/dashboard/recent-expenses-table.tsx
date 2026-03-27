@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { SoftDeleteStatusBadge } from "@/components/badges/soft-delete-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { RecentExpenseRow } from "@/hooks/useAnalytics";
+import {
+  BADGE_UNKNOWN_FALLBACK,
+  DISPLAY_FALLBACK_EMPTY,
+  getSafeBadgeValue,
+} from "@/lib/format";
 import type { ExpenseDoc } from "@/services/expense.service";
 
 const RECENT_LIMIT = 5;
@@ -29,7 +35,7 @@ const RECENT_LIMIT = 5;
 /** `dd/MM/yyyy HH:mm` — aligned with chi tiêu table. */
 function formatDateTime(ts: ExpenseDoc["createdAt"]): string {
   if (!ts || typeof ts.toDate !== "function") {
-    return "—";
+    return DISPLAY_FALLBACK_EMPTY;
   }
   const d = ts.toDate();
   const dd = String(d.getDate()).padStart(2, "0");
@@ -117,14 +123,27 @@ export function RecentExpensesTable({
                   <TableCell className="text-muted-foreground group-hover:text-foreground pl-6 text-xs font-medium whitespace-nowrap sm:text-sm">
                     {formatDateTime(expense.createdAt)}
                   </TableCell>
-                  <TableCell className="font-medium">{categoryName}</TableCell>
-                  <TableCell className="text-muted-foreground hidden max-w-[140px] truncate sm:table-cell">
-                    {expense.note?.trim() ? expense.note : "—"}
+                  <TableCell>
+                    <Badge
+                      variant="secondary"
+                      className="max-w-[min(180px,40vw)] truncate font-medium"
+                    >
+                      {getSafeBadgeValue(categoryName, BADGE_UNKNOWN_FALLBACK)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="hidden max-w-[140px] sm:table-cell">
+                    <Badge
+                      variant="outline"
+                      className="max-w-full truncate font-normal"
+                    >
+                      {getSafeBadgeValue(
+                        expense.note?.trim() ?? null,
+                        "Không có ghi chú"
+                      )}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="font-normal">
-                      Hoạt động
-                    </Badge>
+                    <SoftDeleteStatusBadge deletedAt={expense.deletedAt} />
                   </TableCell>
                   <TableCell className="pr-6 text-right font-medium tabular-nums">
                     {formatAmount(expense.amount)}

@@ -76,6 +76,12 @@ import {
   softDeleteDebt,
   type DebtDoc,
 } from "@/services/debt.service";
+import {
+  BADGE_UNKNOWN_FALLBACK,
+  BADGE_UNKNOWN_VISUAL,
+  DISPLAY_FALLBACK_EMPTY,
+  getSafeBadgeValue,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { DebtForm } from "./debt-form";
@@ -89,7 +95,7 @@ function formatMoney(amount: number): string {
 
 function formatDateTime(ts: DebtDoc["createdAt"]): string {
   if (!ts || typeof ts.toDate !== "function") {
-    return "—";
+    return DISPLAY_FALLBACK_EMPTY;
   }
   const d = ts.toDate();
   const dd = String(d.getDate()).padStart(2, "0");
@@ -102,7 +108,7 @@ function formatDateTime(ts: DebtDoc["createdAt"]): string {
 
 function formatDueOnly(ts: DebtDoc["dueDate"]): string {
   if (!ts || typeof ts.toDate !== "function") {
-    return "—";
+    return DISPLAY_FALLBACK_EMPTY;
   }
   const d = ts.toDate();
   const dd = String(d.getDate()).padStart(2, "0");
@@ -115,13 +121,20 @@ function TypeBadge({ debt }: { debt: DebtDoc }) {
   if (debt.type === "receivable") {
     return (
       <Badge className="rounded-full border-0 bg-emerald-600 text-white hover:bg-emerald-600/90">
-        Họ nợ bạn
+        {getSafeBadgeValue("Họ nợ bạn", BADGE_UNKNOWN_FALLBACK)}
+      </Badge>
+    );
+  }
+  if (debt.type === "payable") {
+    return (
+      <Badge variant="destructive" className="rounded-full">
+        {getSafeBadgeValue("Bạn nợ", BADGE_UNKNOWN_FALLBACK)}
       </Badge>
     );
   }
   return (
-    <Badge variant="destructive" className="rounded-full">
-      Bạn nợ
+    <Badge variant="secondary" className={cn("rounded-full", BADGE_UNKNOWN_VISUAL)}>
+      {getSafeBadgeValue(BADGE_UNKNOWN_FALLBACK, BADGE_UNKNOWN_FALLBACK)}
     </Badge>
   );
 }
@@ -130,16 +143,23 @@ function StatusBadge({ debt }: { debt: DebtDoc }) {
   if (debt.status === "paid") {
     return (
       <Badge className="rounded-full border-0 bg-emerald-600 text-white hover:bg-emerald-600/90">
-        Đã trả
+        {getSafeBadgeValue("Đã trả", BADGE_UNKNOWN_FALLBACK)}
+      </Badge>
+    );
+  }
+  if (debt.status === "pending") {
+    return (
+      <Badge
+        variant="secondary"
+        className="rounded-full border-amber-500/40 bg-amber-500/15 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"
+      >
+        {getSafeBadgeValue("Chưa trả", BADGE_UNKNOWN_FALLBACK)}
       </Badge>
     );
   }
   return (
-    <Badge
-      variant="secondary"
-      className="rounded-full border-amber-500/40 bg-amber-500/15 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"
-    >
-      Chưa trả
+    <Badge variant="secondary" className={cn("rounded-full", BADGE_UNKNOWN_VISUAL)}>
+      {getSafeBadgeValue(BADGE_UNKNOWN_FALLBACK, BADGE_UNKNOWN_FALLBACK)}
     </Badge>
   );
 }
@@ -587,8 +607,13 @@ export function DebtTable() {
                   <dt className="text-muted-foreground text-xs font-medium">
                     Ghi chú
                   </dt>
-                  <dd className="m-0 whitespace-pre-wrap text-muted-foreground">
-                    {detailDebt.note?.trim() || "—"}
+                  <dd className="m-0">
+                    <Badge variant="outline" className="max-w-full whitespace-normal font-normal">
+                      {getSafeBadgeValue(
+                        detailDebt.note?.trim() ?? null,
+                        BADGE_UNKNOWN_FALLBACK
+                      )}
+                    </Badge>
                   </dd>
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -619,7 +644,7 @@ export function DebtTable() {
                     <dd className="m-0">
                       {detailDebt.paidAt
                         ? formatDateTime(detailDebt.paidAt)
-                        : "—"}
+                        : DISPLAY_FALLBACK_EMPTY}
                     </dd>
                   </div>
                 ) : null}

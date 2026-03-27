@@ -1,21 +1,30 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Filter, PieChart } from "lucide-react";
 
 import { ChartCategory } from "@/components/dashboard/chart-category";
+import { DebtChart } from "@/components/dashboard/debt-chart";
+import { DebtSummary } from "@/components/dashboard/debt-summary";
 import { RecentExpensesTable } from "@/components/dashboard/recent-expenses-table";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { SavingsPinDialog } from "@/components/savings/pin-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useDebtAnalytics } from "@/hooks/useDebtAnalytics";
+import { usePinStatus } from "@/hooks/useSecurity";
+import {
+  clearDashboardReceivableUnlockedCookie,
+  isDashboardReceivableUnlockedCookie,
+  setDashboardReceivableUnlockedCookie,
+} from "@/lib/dashboard-receivable-pin-session";
 import {
   clearDashboardSavingsUnlockedCookie,
   isDashboardSavingsUnlockedCookie,
   setDashboardSavingsUnlockedCookie,
 } from "@/lib/dashboard-savings-pin-session";
-import { userHasPin } from "@/services/security.service";
+import { computeDebtAnalyticsForCharts } from "@/services/debt.service";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -62,24 +71,22 @@ export function DashboardOverview() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
-  const [hasPin, setHasPin] = useState(false);
-  const [pinLoading, setPinLoading] = useState(true);
+  const { hasPin, pinLoading } = usePinStatus(uid);
   const [savingsUnlocked, setSavingsUnlocked] = useState(false);
+  const [receivableUnlocked, setReceivableUnlocked] = useState(false);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [receivablePinDialogOpen, setReceivablePinDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!uid) {
       clearDashboardSavingsUnlockedCookie();
-      setHasPin(false);
-      setPinLoading(false);
+      clearDashboardReceivableUnlockedCookie();
       setSavingsUnlocked(false);
+      setReceivableUnlocked(false);
       return;
     }
     setSavingsUnlocked(isDashboardSavingsUnlockedCookie());
-    setPinLoading(true);
-    void userHasPin(uid)
-      .then(setHasPin)
-      .finally(() => setPinLoading(false));
+    setReceivableUnlocked(isDashboardReceivableUnlockedCookie());
   }, [uid]);
 
   const {
@@ -103,6 +110,31 @@ export function DashboardOverview() {
     recentExpensesEmpty,
     resetFiltersToCurrent,
   } = useAnalytics();
+
+  const { loading: debtLoading, analytics: debtAnalytics, hasAnyDebt, debts } =
+    useDebtAnalytics();
+
+  const receivableSensitive =
+    !debtLoading && debtAnalytics.pendingReceivable > 0;
+
+  const receivableDisplayValue = useMemo((): number | null => {
+    if (debtLoading) return null;
+    if (debtAnalytics.pendingReceivable === 0) return 0;
+    if (pinLoading) return null;
+    if (hasPin && receivableUnlocked) return debtAnalytics.pendingReceivable;
+    return null;
+  }, [
+    debtLoading,
+    debtAnalytics.pendingReceivable,
+    pinLoading,
+    hasPin,
+    receivableUnlocked,
+  ]);
+
+  const chartAnalytics = useMemo(
+    () => computeDebtAnalyticsForCharts(debts, receivableUnlocked),
+    [debts, receivableUnlocked]
+  );
 
   const barTitle =
     viewMode === "month"
@@ -152,19 +184,77 @@ export function DashboardOverview() {
         }
       />
 
+      {uid && !debtLoading && !hasAnyDebt ? (
+        <Card className="rounded-xl border border-dashed shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold tracking-tight">
+              Tình hình nợ
+            </CardTitle>
+            <CardDescription>Không có dữ liệu nợ</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {uid && (debtLoading || hasAnyDebt) ? (
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Tình hình nợ
+            </h2>
+            <DebtSummary
+              loading={debtLoading}
+              pendingPayable={debtAnalytics.pendingPayable}
+              paidTotal={debtAnalytics.paidTotal}
+              receivableSensitive={receivableSensitive}
+              receivablePin={{
+                pinLoading,
+                hasPin,
+                unlocked: receivableUnlocked,
+                displayValue: receivableDisplayValue,
+                onRequestUnlock: () => setReceivablePinDialogOpen(true),
+              }}
+            />
+          </div>
+          <DebtChart
+            loading={debtLoading}
+            analytics={chartAnalytics}
+            chartsReceivableMasked={
+              receivableSensitive && !receivableUnlocked
+            }
+          />
+        </div>
+      ) : null}
+
       {uid ? (
-        <SavingsPinDialog
-          open={pinDialogOpen}
-          onOpenChange={setPinDialogOpen}
-          dismissible
-          mode="verify"
-          uid={uid}
-          onVerified={() => {
-            setDashboardSavingsUnlockedCookie();
-            setSavingsUnlocked(true);
-            setPinDialogOpen(false);
-          }}
-        />
+        <>
+          <SavingsPinDialog
+            open={pinDialogOpen}
+            onOpenChange={setPinDialogOpen}
+            dismissible
+            mode="verify"
+            uid={uid}
+            verifyInputId="dashboard-savings-pin"
+            onVerified={() => {
+              setDashboardSavingsUnlockedCookie();
+              setSavingsUnlocked(true);
+              setPinDialogOpen(false);
+            }}
+          />
+          <SavingsPinDialog
+            open={receivablePinDialogOpen}
+            onOpenChange={setReceivablePinDialogOpen}
+            dismissible
+            mode="verify"
+            uid={uid}
+            verifyInputId="dashboard-receivable-pin"
+            verifyDescription="Nhập mã PIN để xem số phải thu (người khác nợ bạn)."
+            onVerified={() => {
+              setDashboardReceivableUnlockedCookie();
+              setReceivableUnlocked(true);
+              setReceivablePinDialogOpen(false);
+            }}
+          />
+        </>
       ) : null}
 
       <Card className="rounded-xl border shadow-sm">

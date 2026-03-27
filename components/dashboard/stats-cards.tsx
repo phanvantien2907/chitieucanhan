@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FolderTree, KeyRound, PiggyBank, Receipt, Wallet } from "lucide-react";
+import { KeyRound, PiggyBank, Receipt, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +26,6 @@ export type DashboardStats = {
   monthExpenseChangePct: number | null;
   expenseCountThisMonth: number;
   savingsTotal: number;
-  activeCategoryCount: number;
 };
 
 export type SavingsPinVisibility = {
@@ -39,7 +38,7 @@ export type SavingsPinVisibility = {
 /** Chi tiêu giảm so với tháng trước → tốt (xanh). */
 function formatExpenseDelta(pct: number | null): { text: string; good: boolean } {
   if (pct == null) {
-    return { text: "—", good: true };
+    return { text: "Chưa có so sánh", good: true };
   }
   const up = pct > 0;
   const abs = Math.abs(pct).toLocaleString("vi-VN", {
@@ -66,7 +65,6 @@ export function StatsCards({
     monthExpenseChangePct,
     expenseCountThisMonth,
     savingsTotal,
-    activeCategoryCount,
   } = stats;
 
   const delta = formatExpenseDelta(monthExpenseChangePct);
@@ -110,20 +108,12 @@ export function StatsCards({
     {
       title: "Tổng tiết kiệm",
       value: savingsValue,
-      delta: "—",
+      delta: "Không áp dụng",
       description:
         showSavingsMasked || showSavingsNoPin
           ? "Ẩn cho đến khi xác thực PIN"
           : "tổng số dư (đang hoạt động)",
       icon: PiggyBank,
-      deltaClassName: "text-muted-foreground",
-    },
-    {
-      title: "Số danh mục",
-      value: String(activeCategoryCount),
-      delta: "—",
-      description: "danh mục hoạt động",
-      icon: FolderTree,
       deltaClassName: "text-muted-foreground",
     },
     {
@@ -137,7 +127,7 @@ export function StatsCards({
   ] as const;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {cards.map((item) => (
         <Card
           key={item.title}
@@ -163,7 +153,7 @@ export function StatsCards({
                     : item.title === "Tổng tiết kiệm" && item.value === "no-pin"
                       ? (
                           <span className="text-muted-foreground text-lg font-normal">
-                            —
+                            Chưa thiết lập PIN
                           </span>
                         )
                       : (

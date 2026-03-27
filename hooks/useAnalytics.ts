@@ -5,7 +5,6 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
 import {
-  activeCategoryCount,
   aggregateByCategory,
   buildBarSeriesLast12Months,
   buildBarSeriesYear,
@@ -46,7 +45,7 @@ const RECENT_EXPENSES_LIMIT = 5;
 export type RecentExpenseRow = {
   id: string;
   expense: ExpenseDoc;
-  categoryName: string;
+  categoryName: string | null;
 };
 
 function generateMonthOptions(): string[] {
@@ -200,9 +199,8 @@ export function useAnalytics() {
       monthExpenseChangePct: change,
       expenseCountThisMonth: countExpensesInMonth(expenses, monthKey),
       savingsTotal: activeSavingsTotal(savings),
-      activeCategoryCount: activeCategoryCount(categories),
     };
-  }, [expenses, savings, categories]);
+  }, [expenses, savings]);
 
   const comparisonLabel = useMemo(() => {
     if (viewMode === "month") {
@@ -244,7 +242,7 @@ export function useAnalytics() {
     return active.map((e) => ({
       id: e.id,
       expense: e,
-      categoryName: nameById.get(e.categoryId) ?? "—",
+      categoryName: nameById.get(e.categoryId) ?? null,
     }));
   }, [expenses, categories]);
 

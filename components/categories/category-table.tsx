@@ -69,6 +69,7 @@ import {
   type CategoryHierarchyFilter,
   useCategory,
 } from "@/hooks/useCategory";
+import { DISPLAY_FALLBACK_EMPTY } from "@/lib/format";
 import { softDeleteCategory, type CategoryDoc, type CategoryTreeNode } from "@/services/category.service";
 import { cn } from "@/lib/utils";
 
@@ -224,7 +225,7 @@ const CategoryTreeRows = memo(function CategoryTreeRows({
 
 function formatDateTime(ts: CategoryDoc["createdAt"]): string {
   if (!ts || typeof ts.toDate !== "function") {
-    return "—";
+    return DISPLAY_FALLBACK_EMPTY;
   }
   const d = ts.toDate();
   const dd = String(d.getDate()).padStart(2, "0");

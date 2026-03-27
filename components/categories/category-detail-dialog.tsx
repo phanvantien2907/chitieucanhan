@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -11,38 +10,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SoftDeleteStatusBadge } from "@/components/badges/soft-delete-status-badge";
+import { DISPLAY_FALLBACK_EMPTY } from "@/lib/format";
 import { getCategoryPath, type CategoryDoc } from "@/services/category.service";
-import { cn } from "@/lib/utils";
 
-/** Same styling in table + detail — shadcn Badge only. */
-export function CategoryStatusBadge({
-  deletedAt,
-  className,
-}: {
-  deletedAt: CategoryDoc["deletedAt"];
-  className?: string;
-}) {
-  const isDeleted = deletedAt != null;
-  return isDeleted ? (
-    <Badge variant="destructive" className={cn("rounded-full", className)}>
-      Đã xóa
-    </Badge>
-  ) : (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300",
-        className
-      )}
-    >
-      Hoạt động
-    </Badge>
-  );
-}
+export { SoftDeleteStatusBadge as CategoryStatusBadge } from "@/components/badges/soft-delete-status-badge";
 
 function formatDateTime(ts: CategoryDoc["createdAt"]): string {
   if (!ts || typeof ts.toDate !== "function") {
-    return "—";
+    return DISPLAY_FALLBACK_EMPTY;
   }
   const d = ts.toDate();
   const dd = String(d.getDate()).padStart(2, "0");
@@ -186,7 +162,7 @@ export function CategoryDetailDialog({
                 Trạng thái
               </dt>
               <dd className="m-0">
-                <CategoryStatusBadge deletedAt={category.deletedAt} />
+                <SoftDeleteStatusBadge deletedAt={category.deletedAt} />
               </dd>
             </div>
           </dl>

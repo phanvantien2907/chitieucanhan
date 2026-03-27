@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SoftDeleteStatusBadge } from "@/components/badges/soft-delete-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,6 +75,11 @@ import {
   useSavings,
 } from "@/hooks/useSavings";
 import { softDeleteSaving, type SavingDoc } from "@/services/savings.service";
+import {
+  BADGE_UNKNOWN_FALLBACK,
+  DISPLAY_FALLBACK_EMPTY,
+  getSafeBadgeValue,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { SavingsForm } from "./savings-form";
@@ -88,7 +94,7 @@ function formatMoney(amount: number): string {
 /** `dd/MM/yyyy HH:mm` (24h) */
 function formatDateTime(ts: SavingDoc["createdAt"]): string {
   if (!ts || typeof ts.toDate !== "function") {
-    return "—";
+    return DISPLAY_FALLBACK_EMPTY;
   }
   const d = ts.toDate();
   const dd = String(d.getDate()).padStart(2, "0");
@@ -108,7 +114,7 @@ function SavingsCategoryBadge({
   categoryNameById: Map<string, string>;
   noCategoriesInApp: boolean;
 }) {
-  const label = categoryNameById.get(categoryId) ?? "—";
+  const label = categoryNameById.get(categoryId);
   if (noCategoriesInApp) {
     return (
       <Badge
@@ -116,28 +122,29 @@ function SavingsCategoryBadge({
         className="max-w-[min(220px,50vw)] truncate rounded-full border-amber-500/45 bg-amber-500/12 font-medium text-amber-950 dark:text-amber-100"
         title="Chưa có danh mục nào trong hệ thống"
       >
-        Chưa có danh mục
+        {getSafeBadgeValue("Chưa có danh mục", BADGE_UNKNOWN_FALLBACK)}
       </Badge>
     );
   }
-  if (!categoryId?.trim() || label === "—") {
+  if (!categoryId?.trim() || label == null) {
     return (
       <Badge
         variant="outline"
         className="max-w-[min(220px,50vw)] truncate rounded-full border-amber-500/40 bg-amber-500/8 font-medium text-amber-900 dark:text-amber-200"
         title="Chưa gán danh mục"
       >
-        Chưa phân loại
+        {getSafeBadgeValue("Chưa phân loại", BADGE_UNKNOWN_FALLBACK)}
       </Badge>
     );
   }
+  const display = getSafeBadgeValue(label, BADGE_UNKNOWN_FALLBACK);
   return (
     <Badge
       variant="secondary"
       className="max-w-[min(220px,50vw)] truncate rounded-full border border-emerald-500/35 bg-emerald-500/12 font-medium text-emerald-900 dark:text-emerald-200/90"
-      title={label}
+      title={display}
     >
-      {label}
+      {display}
     </Badge>
   );
 }
@@ -344,7 +351,10 @@ export function SavingsTable() {
                                   variant="outline"
                                   className="cursor-default rounded-full font-normal text-muted-foreground"
                                 >
-                                  Không có ghi chú
+                                  {getSafeBadgeValue(
+                                    "Không có ghi chú",
+                                    BADGE_UNKNOWN_FALLBACK
+                                  )}
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent side="top">
@@ -357,21 +367,7 @@ export function SavingsTable() {
                           {formatDateTime(row.createdAt)}
                         </TableCell>
                         <TableCell>
-                          {isDeleted ? (
-                            <Badge
-                              variant="destructive"
-                              className="rounded-full"
-                            >
-                              Đã xóa
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="secondary"
-                              className="rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
-                            >
-                              Hoạt động
-                            </Badge>
-                          )}
+                          <SoftDeleteStatusBadge deletedAt={row.deletedAt} />
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
@@ -605,7 +601,10 @@ export function SavingsTable() {
                           variant="outline"
                           className="cursor-default rounded-full font-normal text-muted-foreground"
                         >
-                          Không có ghi chú
+                          {getSafeBadgeValue(
+                            "Không có ghi chú",
+                            BADGE_UNKNOWN_FALLBACK
+                          )}
                         </Badge>
                       </TooltipTrigger>
                       <TooltipContent side="top">
@@ -636,16 +635,7 @@ export function SavingsTable() {
                   Trạng thái
                 </dt>
                 <dd className="m-0">
-                  {detailSaving.deletedAt != null ? (
-                    <Badge className="rounded-full">Đã xóa</Badge>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className="rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
-                    >
-                      Hoạt động
-                    </Badge>
-                  )}
+                  <SoftDeleteStatusBadge deletedAt={detailSaving.deletedAt} />
                 </dd>
               </div>
             </dl>

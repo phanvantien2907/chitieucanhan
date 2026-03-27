@@ -248,6 +248,140 @@ export function parseDueDateInput(isoDate: string): Timestamp | null {
   return Timestamp.fromDate(d);
 }
 
+/** Aggregated metrics for dashboard debt analytics (non-deleted rows only). */
+export type DebtAnalyticsComputed = {
+  /** `receivable` + `pending` */
+  pendingReceivable: number;
+  /** `payable` + `pending` */
+  pendingPayable: number;
+  /** `status === "paid"` */
+  paidTotal: number;
+  /** Pending amounts for pie: phải thu vs phải trả */
+  receivableVsPayablePie: Array<{ name: string; value: number }>;
+  /** Top persons by pending total (sum of amounts), max 5 */
+  topPersonsPending: Array<{ personName: string; amount: number }>;
+  /** Total pending (all) vs total paid — for ratio chart */
+  paidVsPendingPie: Array<{ name: string; value: number }>;
+};
+
+/**
+ * Pure aggregation for dashboard charts. Excludes soft-deleted debts.
+ */
+export function computeDebtAnalytics(debts: DebtDoc[]): DebtAnalyticsComputed {
+  const active = debts.filter((d) => d.deletedAt == null);
+
+  let pendingReceivable = 0;
+  let pendingPayable = 0;
+  let paidTotal = 0;
+
+  const byPerson = new Map<string, number>();
+
+  for (const d of active) {
+    if (d.status === "paid") {
+      paidTotal += d.amount;
+      continue;
+    }
+    if (d.type === "receivable") {
+      pendingReceivable += d.amount;
+    } else {
+      pendingPayable += d.amount;
+    }
+    const key = d.personName.trim() || "Không tên";
+    byPerson.set(key, (byPerson.get(key) ?? 0) + d.amount);
+  }
+
+  const pendingTotal = pendingReceivable + pendingPayable;
+
+  const topPersonsPending = Array.from(byPerson.entries())
+    .map(([personName, amount]) => ({ personName, amount }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+
+  const receivableVsPayablePie = [
+    { name: "Phải thu (được nợ)", value: pendingReceivable },
+    { name: "Phải trả (đang nợ)", value: pendingPayable },
+  ].filter((s) => s.value > 0);
+
+  const paidVsPendingPie = [
+    { name: "Đã thanh toán", value: paidTotal },
+    { name: "Còn pending", value: pendingTotal },
+  ].filter((s) => s.value > 0);
+
+  return {
+    pendingReceivable,
+    pendingPayable,
+    paidTotal,
+    receivableVsPayablePie,
+    topPersonsPending,
+    paidVsPendingPie,
+  };
+}
+
+/**
+ * Chart aggregates when receivable is PIN-masked: excludes pending **receivable**
+ * rows so totals cannot be inferred from charts. Full {@link computeDebtAnalytics}
+ * is still used for the unlockable card value.
+ */
+export function computeDebtAnalyticsExcludingReceivablePending(
+  debts: DebtDoc[]
+): DebtAnalyticsComputed {
+  const active = debts.filter((d) => d.deletedAt == null);
+
+  let pendingPayable = 0;
+  let paidTotal = 0;
+  const byPerson = new Map<string, number>();
+
+  for (const d of active) {
+    if (d.status === "paid") {
+      paidTotal += d.amount;
+      continue;
+    }
+    if (d.type === "receivable") {
+      continue;
+    }
+    pendingPayable += d.amount;
+    const key = d.personName.trim() || "Không tên";
+    byPerson.set(key, (byPerson.get(key) ?? 0) + d.amount);
+  }
+
+  const pendingReceivable = 0;
+  const pendingTotal = pendingPayable;
+
+  const topPersonsPending = Array.from(byPerson.entries())
+    .map(([personName, amount]) => ({ personName, amount }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+
+  const receivableVsPayablePie = [
+    { name: "Phải thu (được nợ)", value: pendingReceivable },
+    { name: "Phải trả (đang nợ)", value: pendingPayable },
+  ].filter((s) => s.value > 0);
+
+  const paidVsPendingPie = [
+    { name: "Đã thanh toán", value: paidTotal },
+    { name: "Còn pending", value: pendingTotal },
+  ].filter((s) => s.value > 0);
+
+  return {
+    pendingReceivable,
+    pendingPayable,
+    paidTotal,
+    receivableVsPayablePie,
+    topPersonsPending,
+    paidVsPendingPie,
+  };
+}
+
+export function computeDebtAnalyticsForCharts(
+  debts: DebtDoc[],
+  receivableUnlocked: boolean
+): DebtAnalyticsComputed {
+  if (receivableUnlocked) {
+    return computeDebtAnalytics(debts);
+  }
+  return computeDebtAnalyticsExcludingReceivablePending(debts);
+}
+
 /** For controlled date input from `DebtDoc.dueDate`. */
 export function formatDueDateForInput(ts: Timestamp | null): string {
   if (!ts || typeof ts.toDate !== "function") return "";

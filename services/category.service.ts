@@ -305,7 +305,7 @@ export function getParentDisplayName(
 ): string {
   const path = getCategoryPathDocs(category, flat);
   if (path.length < 2) {
-    return "—";
+    return "Không xác định";
   }
   const p = path[path.length - 2]!;
   if (p.deletedAt != null) {

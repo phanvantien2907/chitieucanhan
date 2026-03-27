@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SoftDeleteStatusBadge } from "@/components/badges/soft-delete-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,6 +75,11 @@ import {
   type ExpenseFilterMode,
   useExpenses,
 } from "@/hooks/useExpense";
+import {
+  BADGE_UNKNOWN_FALLBACK,
+  DISPLAY_FALLBACK_EMPTY,
+  getSafeBadgeValue,
+} from "@/lib/format";
 import { softDeleteExpense, type ExpenseDoc } from "@/services/expense.service";
 import { cn } from "@/lib/utils";
 
@@ -89,7 +95,7 @@ function formatMoney(amount: number): string {
 /** `dd/MM/yyyy HH:mm` (24h) */
 function formatDateTime(ts: ExpenseDoc["createdAt"]): string {
   if (!ts || typeof ts.toDate !== "function") {
-    return "—";
+    return DISPLAY_FALLBACK_EMPTY;
   }
   const d = ts.toDate();
   const dd = String(d.getDate()).padStart(2, "0");
@@ -153,12 +159,6 @@ export function ExpenseTable() {
 
   const canPrev = page > 1;
   const canNext = page < totalPages;
-
-  const categoryLabel = (categoryId: string) =>
-    categoryNameById.get(categoryId) ?? "—";
-
-  const displayCode = (e: ExpenseDoc) =>
-    e.code?.trim() ? e.code : "—";
 
   const copyExpenseCode = (code: string) => {
     void navigator.clipboard.writeText(code).then(
@@ -308,9 +308,15 @@ export function ExpenseTable() {
                           <div className="flex max-w-[min(240px,55vw)] items-center gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="text-muted-foreground font-mono text-sm font-medium">
-                                  {displayCode(row)}
-                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className="max-w-[min(200px,40vw)] truncate font-mono text-xs font-medium"
+                                >
+                                  {getSafeBadgeValue(
+                                    row.code?.trim() ?? null,
+                                    BADGE_UNKNOWN_FALLBACK
+                                  )}
+                                </Badge>
                               </TooltipTrigger>
                               <TooltipContent>Mã giao dịch</TooltipContent>
                             </Tooltip>
@@ -336,29 +342,33 @@ export function ExpenseTable() {
                         <TableCell className="text-right font-medium tabular-nums">
                           {formatMoney(row.amount)}
                         </TableCell>
-                        <TableCell className="text-muted-foreground max-w-[min(220px,45vw)] whitespace-normal">
-                          {row.note?.trim() ? row.note : "—"}
+                        <TableCell className="max-w-[min(220px,45vw)] whitespace-normal">
+                          <Badge
+                            variant="outline"
+                            className="max-w-full whitespace-normal font-normal"
+                          >
+                            {getSafeBadgeValue(
+                              row.note?.trim() ?? null,
+                              "Không có ghi chú"
+                            )}
+                          </Badge>
                         </TableCell>
-                        <TableCell>{categoryLabel(row.categoryId)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className="max-w-[min(220px,50vw)] truncate rounded-full font-medium"
+                          >
+                            {getSafeBadgeValue(
+                              categoryNameById.get(row.categoryId) ?? null,
+                              BADGE_UNKNOWN_FALLBACK
+                            )}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDateTime(row.createdAt)}
                         </TableCell>
                         <TableCell>
-                          {isDeleted ? (
-                            <Badge
-                              variant="destructive"
-                              className="rounded-full"
-                            >
-                              Đã xóa
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="secondary"
-                              className="rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
-                            >
-                              Hoạt động
-                            </Badge>
-                          )}
+                          <SoftDeleteStatusBadge deletedAt={row.deletedAt} />
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
@@ -551,9 +561,12 @@ export function ExpenseTable() {
               <div>
                 <dt className="text-muted-foreground">Mã giao dịch</dt>
                 <dd className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground font-mono text-sm font-medium">
-                    {displayCode(detailExpense)}
-                  </span>
+                  <Badge variant="outline" className="font-mono text-xs font-medium">
+                    {getSafeBadgeValue(
+                      detailExpense.code?.trim() ?? null,
+                      BADGE_UNKNOWN_FALLBACK
+                    )}
+                  </Badge>
                   {detailExpense.code?.trim() ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -587,13 +600,28 @@ export function ExpenseTable() {
               </div>
               <div>
                 <dt className="text-muted-foreground">Ghi chú</dt>
-                <dd className="whitespace-pre-wrap">
-                  {detailExpense.note?.trim() || "—"}
+                <dd className="m-0">
+                  <Badge
+                    variant="outline"
+                    className="max-w-full whitespace-pre-wrap font-normal"
+                  >
+                    {getSafeBadgeValue(
+                      detailExpense.note?.trim() ?? null,
+                      "Không có ghi chú"
+                    )}
+                  </Badge>
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Danh mục</dt>
-                <dd>{categoryLabel(detailExpense.categoryId)}</dd>
+                <dd>
+                  <Badge variant="secondary" className="rounded-full font-medium">
+                    {getSafeBadgeValue(
+                      categoryNameById.get(detailExpense.categoryId) ?? null,
+                      BADGE_UNKNOWN_FALLBACK
+                    )}
+                  </Badge>
+                </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Ngày tạo</dt>
@@ -608,16 +636,7 @@ export function ExpenseTable() {
               <div>
                 <dt className="text-muted-foreground">Trạng thái</dt>
                 <dd>
-                  {detailExpense.deletedAt != null ? (
-                    <Badge className="rounded-full">Đã xóa</Badge>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className="rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
-                    >
-                      Hoạt động
-                    </Badge>
-                  )}
+                  <SoftDeleteStatusBadge deletedAt={detailExpense.deletedAt} />
                 </dd>
               </div>
             </dl>

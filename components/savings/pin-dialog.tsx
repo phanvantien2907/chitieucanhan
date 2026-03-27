@@ -30,6 +30,10 @@ type SavingsPinDialogProps = {
   mode: "set" | "verify";
   uid: string;
   onVerified: () => void;
+  /** Overrides verify-mode description (e.g. dashboard receivable unlock). */
+  verifyDescription?: string;
+  /** Input id for verify mode (avoid duplicate ids with multiple dialogs). */
+  verifyInputId?: string;
 };
 
 export function SavingsPinDialog({
@@ -39,6 +43,8 @@ export function SavingsPinDialog({
   mode,
   uid,
   onVerified,
+  verifyDescription,
+  verifyInputId = "savings-pin",
 }: SavingsPinDialogProps) {
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -108,16 +114,16 @@ export function SavingsPinDialog({
           <DialogDescription>
             {mode === "set"
               ? "Tạo mã PIN 6 số để bảo vệ mục Tiết kiệm. PIN được mã hóa và không lưu dạng văn bản."
-              : "Nhập PIN 6 số để tiếp tục."}
+              : verifyDescription ?? "Nhập PIN 6 số để tiếp tục."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor={dismissible ? "dashboard-savings-pin" : "savings-pin"}>
+            <Label htmlFor={verifyInputId}>
               PIN (6 số)
             </Label>
             <Input
-              id={dismissible ? "dashboard-savings-pin" : "savings-pin"}
+              id={verifyInputId}
               type="password"
               inputMode="numeric"
               autoComplete="off"
