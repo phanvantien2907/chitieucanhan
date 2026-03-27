@@ -173,7 +173,6 @@ export function DashboardHeader() {
               Hủy
             </AlertDialogCancel>
             <Button
-              variant="destructive"
               className="cursor-pointer"
               disabled={isPending}
               onClick={() => void logout().then(() => setLogoutOpen(false))}

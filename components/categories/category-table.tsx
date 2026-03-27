@@ -1,8 +1,9 @@
 "use client";
 
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Eye,
   MoreHorizontal,
@@ -22,7 +23,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,12 +32,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+} from "@/components/ui/pagination";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,18 +67,18 @@ import {
 import {
   type CategoryFilterMode,
   type CategoryHierarchyFilter,
-  useCategories,
+  useCategory,
 } from "@/hooks/useCategory";
-import {
-  getCategoryBreadcrumb,
-  getParentDisplayName,
-  softDeleteCategory,
-  type CategoryDoc,
-  type CategoryTreeNode,
-} from "@/services/category.service";
+import { softDeleteCategory, type CategoryDoc, type CategoryTreeNode } from "@/services/category.service";
 import { cn } from "@/lib/utils";
 
+import {
+  CategoryDetailDialog,
+  CategoryStatusBadge,
+} from "./category-detail-dialog";
 import { CategoryForm } from "./category-form";
+
+const PAGE_SIZE = 5;
 
 type CategoryTreeRowsProps = {
   node: CategoryTreeNode;
@@ -155,18 +153,7 @@ const CategoryTreeRows = memo(function CategoryTreeRows({
           {formatDateTime(node.createdAt)}
         </TableCell>
         <TableCell>
-          {isDeleted ? (
-            <Badge variant="destructive" className="rounded-full">
-              Đã xóa
-            </Badge>
-          ) : (
-            <Badge
-              variant="secondary"
-              className="rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
-            >
-              Hoạt động
-            </Badge>
-          )}
+          <CategoryStatusBadge deletedAt={row.deletedAt} />
         </TableCell>
         <TableCell
           className="text-right"
@@ -278,7 +265,7 @@ export function CategoryTable() {
     setSearch,
     debouncedSearch,
     isEmpty,
-  } = useCategories();
+  } = useCategory();
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
@@ -303,6 +290,29 @@ export function CategoryTable() {
   const [detailCategory, setDetailCategory] = useState<CategoryDoc | null>(
     null
   );
+  const [page, setPage] = useState(1);
+
+  const totalRootPages = useMemo(
+    () => Math.max(1, Math.ceil(categoryTreeForTable.length / PAGE_SIZE)),
+    [categoryTreeForTable.length]
+  );
+
+  const paginatedRoots = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return categoryTreeForTable.slice(start, start + PAGE_SIZE);
+  }, [categoryTreeForTable, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filter, hierarchyFilter]);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalRootPages));
+  }, [totalRootPages]);
+
+  const canPrev = page > 1;
+  const canNext = page < totalRootPages;
+
   const [deleteTarget, setDeleteTarget] = useState<CategoryDoc | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
@@ -443,7 +453,7 @@ export function CategoryTable() {
             </div>
           </div>
 
-          <div className="max-h-[min(70vh,560px)] overflow-auto rounded-xl border bg-muted/20">
+          <div className="max-h-[min(70vh,560px)] overflow-auto rounded-xl border bg-muted/20 transition-opacity duration-200">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -455,7 +465,7 @@ export function CategoryTable() {
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody key={page}>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i} className="hover:bg-transparent">
@@ -466,7 +476,7 @@ export function CategoryTable() {
                         <Skeleton className="h-4 w-28" />
                       </TableCell>
                       <TableCell>
-                        <Skeleton className="h-5 w-20 rounded-full" />
+                        <Skeleton className="h-4 w-16" />
                       </TableCell>
                       <TableCell className="text-right">
                         <Skeleton className="ml-auto h-8 w-8 rounded-lg" />
@@ -485,14 +495,18 @@ export function CategoryTable() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  categoryTreeForTable.map((node) => (
+                  paginatedRoots.map((node) => (
                     <CategoryTreeRows
                       key={node.id}
                       node={node}
                       level={0}
                       expandedIds={expandedIds}
                       onToggle={toggleExpanded}
-                      onDetail={setDetailCategory}
+                      onDetail={(c) => {
+                        if (!loading) {
+                          setDetailCategory(c);
+                        }
+                      }}
                       onEdit={setEditCategory}
                       onDelete={setDeleteTarget}
                     />
@@ -501,6 +515,64 @@ export function CategoryTable() {
               </TableBody>
             </Table>
           </div>
+
+          {!loading && !isEmpty && categoryTreeForTable.length > 0 ? (
+            <Pagination>
+              <PaginationContent className="flex w-full flex-wrap items-center justify-between gap-2 sm:justify-center">
+                <PaginationItem>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="default"
+                        className={cn(
+                          "h-10 min-h-10 gap-1 rounded-lg touch-manipulation",
+                          canPrev ? "cursor-pointer" : "cursor-not-allowed"
+                        )}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={!canPrev}
+                        aria-label="Trang trước"
+                      >
+                        <ChevronLeft className="size-4" />
+                        Trước
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Trang trước</TooltipContent>
+                  </Tooltip>
+                </PaginationItem>
+                <PaginationItem>
+                  <span className="text-muted-foreground flex h-10 min-w-28 items-center justify-center px-2 text-sm tabular-nums">
+                    Trang {page} / {totalRootPages}
+                  </span>
+                </PaginationItem>
+                <PaginationItem>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="default"
+                        className={cn(
+                          "h-10 min-h-10 gap-1 rounded-lg touch-manipulation",
+                          canNext ? "cursor-pointer" : "cursor-not-allowed"
+                        )}
+                        onClick={() =>
+                          setPage((p) => Math.min(totalRootPages, p + 1))
+                        }
+                        disabled={!canNext}
+                        aria-label="Trang sau"
+                      >
+                        Sau
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Trang sau</TooltipContent>
+                  </Tooltip>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          ) : null}
 
         </CardContent>
       </Card>
@@ -532,100 +604,17 @@ export function CategoryTable() {
         </>
       ) : null}
 
-      <Dialog
+      <CategoryDetailDialog
         open={detailCategory !== null}
         onOpenChange={(o) => {
           if (!o) {
             setDetailCategory(null);
           }
         }}
-      >
-        <DialogContent className="sm:max-w-md" showCloseButton>
-          <DialogHeader>
-            <DialogTitle>Chi tiết danh mục</DialogTitle>
-            <DialogDescription>
-              Thông tin đầy đủ trong hệ thống.
-            </DialogDescription>
-          </DialogHeader>
-          {detailCategory ? (
-            <dl className="grid gap-3 text-sm">
-              <div>
-                <dt className="text-muted-foreground">ID</dt>
-                <dd className="font-mono text-xs break-all">{detailCategory.id}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Tên</dt>
-                <dd className="font-medium">{detailCategory.name}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Đường dẫn</dt>
-                <dd className="text-sm">
-                  {getCategoryBreadcrumb(detailCategory.id, allCategories)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Danh mục cha</dt>
-                <dd>{getParentDisplayName(detailCategory, allCategories)}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Cấp</dt>
-                <dd>
-                  <Badge variant="secondary" className="tabular-nums">
-                    L{detailCategory.level}
-                  </Badge>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Mô tả</dt>
-                <dd className="whitespace-pre-wrap">
-                  {detailCategory.description == null ||
-                  detailCategory.description.trim().length === 0 ? (
-                    <Badge
-                      variant="outline"
-                      className="rounded-full font-normal text-muted-foreground"
-                    >
-                      Chưa có mô tả
-                    </Badge>
-                  ) : (
-                    detailCategory.description
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Ngày tạo</dt>
-                <dd>{formatDateTime(detailCategory.createdAt)}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Cập nhật</dt>
-                <dd>{formatDateTime(detailCategory.updatedAt)}</dd>
-              </div>
-              {detailCategory.deletedAt != null ? (
-                <div>
-                  <dt className="text-muted-foreground">Đánh dấu xóa</dt>
-                  <dd>{formatDateTime(detailCategory.deletedAt)}</dd>
-                </div>
-              ) : null}
-              <div>
-                <dt className="text-muted-foreground">Trạng thái</dt>
-                <dd>
-                  {detailCategory.deletedAt != null ? (
-                    <Badge variant="destructive" className="rounded-full">
-                      Đã xóa
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className="rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
-                    >
-                      Hoạt động
-                    </Badge>
-                  )}
-                </dd>
-              </div>
-            </dl>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+        category={detailCategory}
+        allCategories={allCategories}
+        categoriesReady={!loading}
+      />
 
       <AlertDialog
         open={deleteTarget !== null}
@@ -654,7 +643,6 @@ export function CategoryTable() {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  variant="destructive"
                   disabled={deletePending}
                   className="cursor-pointer disabled:cursor-not-allowed"
                   onClick={() => void handleConfirmDelete()}

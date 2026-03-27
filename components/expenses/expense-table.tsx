@@ -609,9 +609,7 @@ export function ExpenseTable() {
                 <dt className="text-muted-foreground">Trạng thái</dt>
                 <dd>
                   {detailExpense.deletedAt != null ? (
-                    <Badge variant="destructive" className="rounded-full">
-                      Đã xóa
-                    </Badge>
+                    <Badge className="rounded-full">Đã xóa</Badge>
                   ) : (
                     <Badge
                       variant="secondary"
@@ -654,7 +652,6 @@ export function ExpenseTable() {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  variant="destructive"
                   disabled={deletePending}
                   className="cursor-pointer disabled:cursor-not-allowed"
                   onClick={() => void handleConfirmDelete()}

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   ChevronsUpDown,
   FolderTree,
+  Handshake,
   LayoutDashboard,
   LogOut,
   PiggyBank,
@@ -52,6 +53,7 @@ const navItems = [
   { title: "Trang chủ", href: "/dashboard", icon: LayoutDashboard },
   { title: "Danh mục", href: "/dashboard/categories", icon: FolderTree },
   { title: "Chi tiêu", href: "/dashboard/expenses", icon: Receipt },
+  { title: "Nợ", href: "/dashboard/debts", icon: Handshake },
   { title: "Tiết kiệm", href: "/dashboard/savings", icon: PiggyBank },
 ] as const;
 
@@ -209,7 +211,6 @@ export function DashboardSidebar() {
               Hủy
             </AlertDialogCancel>
             <Button
-              variant="destructive"
               className="cursor-pointer"
               disabled={isPending}
               onClick={() => void logout().then(() => setLogoutOpen(false))}

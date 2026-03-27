@@ -42,15 +42,25 @@ export type CategorySelectOption = {
   depth: number;
 };
 
+function normalizeParentId(raw: unknown): string | null {
+  if (raw === null || raw === undefined || raw === "") {
+    return null;
+  }
+  if (typeof raw === "object" && raw !== null && "id" in raw) {
+    const id = (raw as { id?: unknown }).id;
+    if (typeof id === "string" && id.trim() !== "") {
+      return id.trim();
+    }
+  }
+  const s = String(raw).trim();
+  return s === "" ? null : s;
+}
+
 function mapSnapshotDoc(
   docId: string,
   data: Record<string, unknown>
 ): CategoryDoc {
-  const rawParent = data.parentId;
-  const parentId =
-    rawParent === null || rawParent === undefined || rawParent === ""
-      ? null
-      : String(rawParent);
+  const parentId = normalizeParentId(data.parentId);
 
   const rawLevel = data.level;
   const level =
@@ -212,25 +222,66 @@ export function buildCategorySelectOptions(
   });
 }
 
-/** "Parent > Child" for active path; stops at missing parent. */
-export function getCategoryBreadcrumb(
+/**
+ * Walk from `categoryId` to root: collect ids (leaf → root), then reverse to
+ * root → leaf. Stops on missing doc or cycle.
+ */
+function getCategoryPathIds(
   categoryId: string,
   flat: CategoryDoc[]
-): string {
+): string[] {
   const byId = new Map(flat.map((c) => [c.id, c]));
-  const chain: string[] = [];
+  const ascend: string[] = [];
   let cur: string | null = categoryId;
   const guard = new Set<string>();
-  while (cur && !guard.has(cur)) {
+  while (cur != null && cur !== "") {
+    if (guard.has(cur)) {
+      break;
+    }
     guard.add(cur);
     const cat = byId.get(cur);
     if (!cat) {
       break;
     }
-    chain.unshift(cat.name);
+    ascend.push(cur);
     cur = cat.parentId;
   }
-  return chain.join(" > ");
+  return ascend.reverse();
+}
+
+/**
+ * Root → … → category (inclusive), as display names.
+ * No parent → single segment `[name]`.
+ */
+export function getCategoryPath(
+  categoryId: string,
+  flat: CategoryDoc[]
+): string[] {
+  const byId = new Map(flat.map((c) => [c.id, c]));
+  return getCategoryPathIds(categoryId, flat)
+    .map((id) => byId.get(id)?.name)
+    .filter((n): n is string => n != null && n !== "");
+}
+
+/**
+ * Root → … → `category` (inclusive). Stops when a parent id is missing from `flat`.
+ */
+export function getCategoryPathDocs(
+  category: CategoryDoc,
+  flat: CategoryDoc[]
+): CategoryDoc[] {
+  const byId = new Map(flat.map((c) => [c.id, c]));
+  return getCategoryPathIds(category.id, flat)
+    .map((id) => byId.get(id))
+    .filter((c): c is CategoryDoc => c != null);
+}
+
+/** "Parent > Child" for active path; stops at missing parent. */
+export function getCategoryBreadcrumb(
+  categoryId: string,
+  flat: CategoryDoc[]
+): string {
+  return getCategoryPath(categoryId, flat).join(" > ");
 }
 
 /** Indent depth for a row when `flat` is the displayed subset (orphan roots depth 0). */
@@ -252,13 +303,11 @@ export function getParentDisplayName(
   category: CategoryDoc,
   flat: CategoryDoc[]
 ): string {
-  if (category.parentId == null) {
+  const path = getCategoryPathDocs(category, flat);
+  if (path.length < 2) {
     return "—";
   }
-  const p = flat.find((c) => c.id === category.parentId);
-  if (!p) {
-    return "—";
-  }
+  const p = path[path.length - 2]!;
   if (p.deletedAt != null) {
     return `${p.name} (đã xóa)`;
   }

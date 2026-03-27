@@ -171,3 +171,8 @@ export function useCategories() {
     activeCategoriesForForms,
   };
 }
+
+/** @alias useCategories — same hook (subscription + filters). */
+export function useCategory() {
+  return useCategories();
+}

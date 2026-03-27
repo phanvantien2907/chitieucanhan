@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   FolderTree,
+  Handshake,
   Home,
   PiggyBank,
   Settings,
@@ -47,6 +48,12 @@ const NAV_ROUTES: readonly NavRoute[] = [
     href: "/dashboard/expenses",
     search: "chi tiêu expenses wallet giao dịch",
     Icon: Wallet,
+  },
+  {
+    title: "Nợ",
+    href: "/dashboard/debts",
+    search: "nợ debts vay phải trả phải thu",
+    Icon: Handshake,
   },
   {
     title: "Tiết kiệm",

@@ -99,6 +99,49 @@ function formatDateTime(ts: SavingDoc["createdAt"]): string {
   return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
+function SavingsCategoryBadge({
+  categoryId,
+  categoryNameById,
+  noCategoriesInApp,
+}: {
+  categoryId: string;
+  categoryNameById: Map<string, string>;
+  noCategoriesInApp: boolean;
+}) {
+  const label = categoryNameById.get(categoryId) ?? "—";
+  if (noCategoriesInApp) {
+    return (
+      <Badge
+        variant="outline"
+        className="max-w-[min(220px,50vw)] truncate rounded-full border-amber-500/45 bg-amber-500/12 font-medium text-amber-950 dark:text-amber-100"
+        title="Chưa có danh mục nào trong hệ thống"
+      >
+        Chưa có danh mục
+      </Badge>
+    );
+  }
+  if (!categoryId?.trim() || label === "—") {
+    return (
+      <Badge
+        variant="outline"
+        className="max-w-[min(220px,50vw)] truncate rounded-full border-amber-500/40 bg-amber-500/8 font-medium text-amber-900 dark:text-amber-200"
+        title="Chưa gán danh mục"
+      >
+        Chưa phân loại
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="secondary"
+      className="max-w-[min(220px,50vw)] truncate rounded-full border border-emerald-500/35 bg-emerald-500/12 font-medium text-emerald-900 dark:text-emerald-200/90"
+      title={label}
+    >
+      {label}
+    </Badge>
+  );
+}
+
 const FILTER_OPTIONS: { value: SavingsFilterMode; label: string }[] = [
   { value: "newest", label: "Mới nhất" },
   { value: "oldest", label: "Cũ nhất" },
@@ -126,8 +169,7 @@ export function SavingsTable() {
     isEmpty,
   } = useSavings();
 
-  const categoryLabel = (categoryId: string) =>
-    categoryNameById.get(categoryId) ?? "—";
+  const noCategoriesInApp = activeCategories.length === 0;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editSaving, setEditSaving] = useState<SavingDoc | null>(null);
@@ -283,8 +325,12 @@ export function SavingsTable() {
                         <TableCell className="text-right font-medium tabular-nums">
                           {formatMoney(row.amount)}
                         </TableCell>
-                        <TableCell className="text-muted-foreground max-w-[min(160px,40vw)] truncate text-sm">
-                          {categoryLabel(row.categoryId)}
+                        <TableCell>
+                          <SavingsCategoryBadge
+                            categoryId={row.categoryId}
+                            categoryNameById={categoryNameById}
+                            noCategoriesInApp={noCategoriesInApp}
+                          />
                         </TableCell>
                         <TableCell className="max-w-[min(260px,50vw)] whitespace-normal">
                           {row.note?.trim() ? (
@@ -514,24 +560,40 @@ export function SavingsTable() {
             <DialogDescription>Thông tin khoản tiết kiệm.</DialogDescription>
           </DialogHeader>
           {detailSaving ? (
-            <dl className="grid gap-3 text-sm">
-              <div>
-                <dt className="text-muted-foreground">ID</dt>
-                <dd className="font-mono text-xs break-all">{detailSaving.id}</dd>
+            <dl className="grid gap-4 text-sm">
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-muted-foreground text-xs font-medium">
+                  ID
+                </dt>
+                <dd className="m-0 font-mono text-xs break-all">
+                  {detailSaving.id}
+                </dd>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Số tiền</dt>
-                <dd className="font-medium tabular-nums">
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-muted-foreground text-xs font-medium">
+                  Số tiền
+                </dt>
+                <dd className="m-0 font-medium tabular-nums">
                   {formatMoney(detailSaving.amount)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Danh mục</dt>
-                <dd>{categoryLabel(detailSaving.categoryId)}</dd>
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-muted-foreground text-xs font-medium">
+                  Danh mục
+                </dt>
+                <dd className="m-0">
+                  <SavingsCategoryBadge
+                    categoryId={detailSaving.categoryId}
+                    categoryNameById={categoryNameById}
+                    noCategoriesInApp={noCategoriesInApp}
+                  />
+                </dd>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Ghi chú</dt>
-                <dd>
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-muted-foreground text-xs font-medium">
+                  Ghi chú
+                </dt>
+                <dd className="m-0">
                   {detailSaving.note?.trim() ? (
                     <span className="whitespace-pre-wrap text-muted-foreground">
                       {detailSaving.note}
@@ -553,23 +615,29 @@ export function SavingsTable() {
                   )}
                 </dd>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Ngày tạo</dt>
-                <dd>{formatDateTime(detailSaving.createdAt)}</dd>
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-muted-foreground text-xs font-medium">
+                  Ngày tạo
+                </dt>
+                <dd className="m-0">{formatDateTime(detailSaving.createdAt)}</dd>
               </div>
               {detailSaving.deletedAt != null ? (
-                <div>
-                  <dt className="text-muted-foreground">Đánh dấu xóa</dt>
-                  <dd>{formatDateTime(detailSaving.deletedAt)}</dd>
+                <div className="flex flex-col gap-1.5">
+                  <dt className="text-muted-foreground text-xs font-medium">
+                    Đánh dấu xóa
+                  </dt>
+                  <dd className="m-0">
+                    {formatDateTime(detailSaving.deletedAt)}
+                  </dd>
                 </div>
               ) : null}
-              <div>
-                <dt className="text-muted-foreground">Trạng thái</dt>
-                <dd>
+              <div className="flex flex-col gap-1.5">
+                <dt className="text-muted-foreground text-xs font-medium">
+                  Trạng thái
+                </dt>
+                <dd className="m-0">
                   {detailSaving.deletedAt != null ? (
-                    <Badge variant="destructive" className="rounded-full">
-                      Đã xóa
-                    </Badge>
+                    <Badge className="rounded-full">Đã xóa</Badge>
                   ) : (
                     <Badge
                       variant="secondary"
@@ -597,7 +665,7 @@ export function SavingsTable() {
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa khoản tiết kiệm?</AlertDialogTitle>
             <AlertDialogDescription>
-              Khoản sẽ được đánh dấu xóa (soft delete).
+              Khoản tiết kiệm sẽ được đánh dấu xóa.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -611,7 +679,6 @@ export function SavingsTable() {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  variant="destructive"
                   disabled={deletePending}
                   className="cursor-pointer disabled:cursor-not-allowed"
                   onClick={() => void handleConfirmDelete()}
