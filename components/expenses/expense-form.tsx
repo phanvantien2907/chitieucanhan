@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -32,10 +33,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
 import type {
   CategoryDoc,
   CategorySelectOption,
 } from "@/services/category.service";
+import { toStartOfDay } from "@/lib/date";
 import {
   createExpense,
   updateExpense,
@@ -66,6 +69,10 @@ const expenseFormSchema = z.object({
     .refine((s) => parseAmountToNumber(s) > 0, "Số tiền không hợp lệ"),
   note: z.string().max(500),
   categoryId: z.string().min(1, "Chọn danh mục"),
+  expenseDate: z.date({
+    required_error: "Chọn ngày chi tiêu",
+    invalid_type_error: "Ngày không hợp lệ",
+  }),
 });
 
 export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
@@ -93,12 +100,14 @@ export function ExpenseForm({
   categoriesLoading,
   onSuccess,
 }: ExpenseFormProps) {
+  const queryClient = useQueryClient();
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
       amount: "",
       note: "",
       categoryId: "",
+      expenseDate: toStartOfDay(new Date()),
     },
     mode: "onSubmit",
   });
@@ -111,16 +120,24 @@ export function ExpenseForm({
       const validCategory = activeCategories.some(
         (c) => c.id === expense.categoryId
       );
+      const created = expense.createdAt?.toDate?.();
+      const expenseDate =
+        (expense.expenseDate?.toDate?.()
+          ? toStartOfDay(expense.expenseDate.toDate())
+          : null) ??
+        (created ? toStartOfDay(created) : toStartOfDay(new Date()));
       form.reset({
         amount: formatThousandsInput(String(Math.round(expense.amount))),
         note: expense.note ?? "",
         categoryId: validCategory ? expense.categoryId : "",
+        expenseDate,
       });
     } else {
       form.reset({
         amount: "",
         note: "",
         categoryId: "",
+        expenseDate: toStartOfDay(new Date()),
       });
     }
   }, [open, expense, mode, form, activeCategories]);
@@ -133,6 +150,7 @@ export function ExpenseForm({
           amount,
           note: values.note,
           categoryId: values.categoryId,
+          expenseDate: values.expenseDate,
         });
         toast.success("Tạo khoản chi thành công.");
       } else if (expense) {
@@ -140,9 +158,13 @@ export function ExpenseForm({
           amount,
           note: values.note,
           categoryId: values.categoryId,
+          expenseDate: values.expenseDate,
         });
         toast.success("Cập nhật khoản chi thành công.");
       }
+      await queryClient.invalidateQueries({
+        queryKey: ["firestore", "expenses", uid],
+      });
       onSuccess();
       onOpenChange(false);
     } catch (e: unknown) {
@@ -164,12 +186,35 @@ export function ExpenseForm({
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
-              ? "Nhập số tiền, ghi chú và chọn danh mục."
+              ? "Nhập số tiền, ngày phát sinh, ghi chú và chọn danh mục."
               : "Cập nhật thông tin khoản chi."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={onSubmit} className="grid gap-4">
+            <FormField
+              control={form.control}
+              name="expenseDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col gap-2">
+                  <FormLabel>Ngày chi tiêu</FormLabel>
+                  <FormControl>
+                    <DatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={submitting}
+                      aria-invalid={!!form.formState.errors.expenseDate}
+                    />
+                  </FormControl>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Chọn đúng ngày bạn đã chi (có thể nhập lại sau hoặc ghi nhận
+                    chi tiêu trước đó — ví dụ tiền mua hôm qua nhưng ghi sổ hôm
+                    nay).
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="amount"

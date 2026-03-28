@@ -4,54 +4,72 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
 import {
+  useFirestoreAllExpensesQuery,
   useFirestoreCategoriesQuery,
-  useFirestoreExpensesQuery,
 } from "@/hooks/useFirestoreQueries";
 import {
-  buildCategorySelectOptions,
-  type CategoryDoc,
-} from "@/services/category.service";
-import type { ExpenseDoc } from "@/services/expense.service";
+  getExpenseTimeFilterLabel,
+  getRangeByFilter,
+  toEndOfDay,
+  toStartOfDay,
+  type ExpenseTimeFilter,
+} from "@/lib/date";
+import { buildCategorySelectOptions } from "@/services/category.service";
+import { expenseOccurrenceMs, type ExpenseDoc } from "@/services/expense.service";
 
-export type ExpenseFilterMode = "newest" | "oldest" | "deleted" | "active";
+export type ExpenseFilterMode = "newest" | "deleted" | "active";
 
 const PAGE_SIZE = 5;
 
-function ms(ts: ExpenseDoc["createdAt"]): number {
-  return ts?.toMillis?.() ?? 0;
-}
-
-function sortByCreatedDesc(a: ExpenseDoc, b: ExpenseDoc): number {
-  return ms(b.createdAt) - ms(a.createdAt);
-}
-
-function sortByCreatedAsc(a: ExpenseDoc, b: ExpenseDoc): number {
-  return ms(a.createdAt) - ms(b.createdAt);
+function sortByExpenseDateDesc(a: ExpenseDoc, b: ExpenseDoc): number {
+  return expenseOccurrenceMs(b) - expenseOccurrenceMs(a);
 }
 
 function msDeleted(ts: ExpenseDoc["deletedAt"]): number {
   return ts?.toMillis?.() ?? 0;
 }
 
+/** Same instant used for sorting / display (expenseDate or legacy createdAt). */
+function occurrenceMsForRange(e: ExpenseDoc): number {
+  return e.expenseDate?.toMillis?.() ?? e.createdAt?.toMillis?.() ?? 0;
+}
+
 export function useExpenses() {
   const { user, isLoading: authLoading } = useAuth();
   const uid = user?.uid ?? null;
 
-  const expensesQuery = useFirestoreExpensesQuery(uid);
+  const [timeFilter, setTimeFilter] = useState<ExpenseTimeFilter>("this_month");
+  const allExpensesQuery = useFirestoreAllExpensesQuery(uid);
   const categoriesQuery = useFirestoreCategoriesQuery(uid);
 
-  const allExpenses = expensesQuery.data ?? [];
+  const allExpensesRaw = allExpensesQuery.data ?? [];
   const allCategories = categoriesQuery.data ?? [];
 
-  const expensesLoading = !!uid && expensesQuery.isPending;
+  const expensesLoading = !!uid && allExpensesQuery.isPending;
   const categoriesLoading = !!uid && categoriesQuery.isPending;
+
+  const timeFilterLabel = useMemo(
+    () => getExpenseTimeFilterLabel(timeFilter),
+    [timeFilter]
+  );
+
+  /** Client-filter by time range (same bounds as lib/date; avoids Firestore composite-index misses). */
+  const rangeFilteredExpenses = useMemo(() => {
+    const { start, end } = getRangeByFilter(timeFilter);
+    const t0 = toStartOfDay(start).getTime();
+    const t1 = toEndOfDay(end).getTime();
+    return allExpensesRaw.filter((e) => {
+      const ms = occurrenceMsForRange(e);
+      return ms > 0 && ms >= t0 && ms <= t1;
+    });
+  }, [allExpensesRaw, timeFilter]);
 
   const [filter, setFilter] = useState<ExpenseFilterMode>("newest");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     setPage(1);
-  }, [filter]);
+  }, [filter, timeFilter]);
 
   const activeCategories = useMemo(
     () => allCategories.filter((c) => c.deletedAt == null),
@@ -72,28 +90,25 @@ export function useExpenses() {
   );
 
   const filteredSorted = useMemo(() => {
-    let list = [...allExpenses];
+    let list = [...rangeFilteredExpenses];
 
     switch (filter) {
       case "active":
         list = list.filter((e) => e.deletedAt == null);
-        list.sort(sortByCreatedDesc);
+        list.sort(sortByExpenseDateDesc);
         break;
       case "deleted":
         list = list.filter((e) => e.deletedAt != null);
         list.sort((a, b) => msDeleted(b.deletedAt) - msDeleted(a.deletedAt));
         break;
-      case "oldest":
-        list.sort(sortByCreatedAsc);
-        break;
       case "newest":
       default:
-        list.sort(sortByCreatedDesc);
+        list.sort(sortByExpenseDateDesc);
         break;
     }
 
     return list;
-  }, [allExpenses, filter]);
+  }, [rangeFilteredExpenses, filter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
 
@@ -122,7 +137,7 @@ export function useExpenses() {
   return {
     uid,
     expenses: paginated,
-    allCount: allExpenses.length,
+    allCount: rangeFilteredExpenses.length,
     filteredCount: filteredSorted.length,
     totalPages,
     page,
@@ -131,6 +146,9 @@ export function useExpenses() {
     categoriesLoading: categoriesLoadingState,
     filter,
     setFilter,
+    timeFilter,
+    setTimeFilter,
+    timeFilterLabel,
     setPage,
     goPrev,
     goNext,

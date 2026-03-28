@@ -28,23 +28,12 @@ import {
   DISPLAY_FALLBACK_EMPTY,
   getSafeBadgeValue,
 } from "@/lib/format";
-import type { ExpenseDoc } from "@/services/expense.service";
+import {
+  formatExpenseDateDdMmYyyy,
+  type ExpenseDoc,
+} from "@/services/expense.service";
 
 const RECENT_LIMIT = 5;
-
-/** `dd/MM/yyyy HH:mm` — aligned with chi tiêu table. */
-function formatDateTime(ts: ExpenseDoc["createdAt"]): string {
-  if (!ts || typeof ts.toDate !== "function") {
-    return DISPLAY_FALLBACK_EMPTY;
-  }
-  const d = ts.toDate();
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(d.getFullYear());
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
-}
 
 function formatAmount(amount: number): string {
   return `${amount.toLocaleString("vi-VN", {
@@ -69,8 +58,8 @@ export function RecentExpensesTable({
       <CardHeader>
         <CardTitle>Chi tiêu gần đây</CardTitle>
         <CardDescription>
-          {RECENT_LIMIT} giao dịch mới nhất (đang hoạt động), cập nhật theo thời
-          gian thực.
+          {RECENT_LIMIT} giao dịch mới nhất (đang hoạt động), sắp xếp theo ngày
+          chi tiêu.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 sm:px-6">
@@ -121,7 +110,10 @@ export function RecentExpensesTable({
                   className="group transition-colors duration-150"
                 >
                   <TableCell className="text-muted-foreground group-hover:text-foreground pl-6 text-xs font-medium whitespace-nowrap sm:text-sm">
-                    {formatDateTime(expense.createdAt)}
+                    {formatExpenseDateDdMmYyyy(
+                      expense.expenseDate,
+                      expense.createdAt
+                    ) || DISPLAY_FALLBACK_EMPTY}
                   </TableCell>
                   <TableCell>
                     <Badge

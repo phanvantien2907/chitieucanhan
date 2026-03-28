@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 
 import { getCategories } from "@/services/category.service";
+import { toStartOfDay } from "@/lib/date";
 import { createExpense } from "@/services/expense.service";
 import { db } from "@/lib/firebase";
 
@@ -214,6 +215,7 @@ export async function markAsPaid(uid: string, debtId: string): Promise<void> {
       amount: existing.amount,
       note: noteParts.join(" — "),
       categoryId,
+      expenseDate: toStartOfDay(new Date()),
     });
   } else {
     await updateDoc(ref, {

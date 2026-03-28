@@ -37,8 +37,8 @@ export function FirestoreSync() {
     const u1 = subscribeExpenses(
       uid,
       (data) => {
-        qc.setQueryData(queryKeys.expenses(uid), data);
-        memoryCache.set(`expenses:${uid}`, data);
+        qc.setQueryData(queryKeys.expensesAll(uid), data);
+        memoryCache.set(`expenses:${uid}:all`, data);
       },
       (err) => toast.error(err.message || "Không thể tải chi tiêu.")
     );

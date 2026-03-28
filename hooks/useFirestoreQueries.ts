@@ -17,19 +17,20 @@ function disabledKey(name: string) {
   return ["firestore", name, "disabled"] as const;
 }
 
-export function useFirestoreExpensesQuery(uid: string | null) {
+/** Full list — charts, aggregates, real-time sync target. */
+export function useFirestoreAllExpensesQuery(uid: string | null) {
   return useQuery({
-    queryKey: uid ? queryKeys.expenses(uid) : disabledKey("expenses"),
+    queryKey: uid ? queryKeys.expensesAll(uid) : disabledKey("expenses-all"),
     queryFn: async (): Promise<ExpenseDoc[]> => {
       if (!uid) return [];
-      return measureAsync("expenses", () => getExpenses(uid));
+      return measureAsync("expenses-all", () => getExpenses(uid));
     },
     enabled: !!uid,
     staleTime: STALE_MS,
     gcTime: GC_MS,
     refetchOnWindowFocus: false,
     placeholderData: (): ExpenseDoc[] | undefined =>
-      uid ? memoryCache.get<ExpenseDoc[]>(`expenses:${uid}`) : undefined,
+      uid ? memoryCache.get<ExpenseDoc[]>(`expenses:${uid}:all`) : undefined,
   });
 }
 

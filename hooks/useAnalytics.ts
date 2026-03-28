@@ -4,8 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
 import {
+  useFirestoreAllExpensesQuery,
   useFirestoreCategoriesQuery,
-  useFirestoreExpensesQuery,
   useFirestoreSavingsQuery,
 } from "@/hooks/useFirestoreQueries";
 import {
@@ -28,17 +28,16 @@ import {
   sumExpensesInYear,
 } from "@/services/analytics.service";
 import type { CategoryDoc } from "@/services/category.service";
-import type { ExpenseDoc } from "@/services/expense.service";
+import {
+  expenseOccurrenceMs,
+  type ExpenseDoc,
+} from "@/services/expense.service";
 import type { SavingDoc } from "@/services/savings.service";
 
 function activeSavingsTotal(savings: SavingDoc[]): number {
   return savings
     .filter((s) => s.deletedAt == null)
     .reduce((s, row) => s + row.amount, 0);
-}
-
-function expenseCreatedMs(e: ExpenseDoc): number {
-  return e.createdAt?.toMillis?.() ?? 0;
 }
 
 const RECENT_EXPENSES_LIMIT = 5;
@@ -70,7 +69,7 @@ export function useAnalytics() {
   const { user, isLoading: authLoading } = useAuth();
   const uid = user?.uid ?? null;
 
-  const expensesQuery = useFirestoreExpensesQuery(uid);
+  const expensesQuery = useFirestoreAllExpensesQuery(uid);
   const categoriesQuery = useFirestoreCategoriesQuery(uid);
   const savingsQuery = useFirestoreSavingsQuery(uid);
 
@@ -170,7 +169,7 @@ export function useAnalytics() {
     );
     const active = expenses
       .filter((e) => e.deletedAt == null)
-      .sort((a, b) => expenseCreatedMs(b) - expenseCreatedMs(a))
+      .sort((a, b) => expenseOccurrenceMs(b) - expenseOccurrenceMs(a))
       .slice(0, RECENT_EXPENSES_LIMIT);
     return active.map((e) => ({
       id: e.id,

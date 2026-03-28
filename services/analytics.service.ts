@@ -71,11 +71,13 @@ export function isActiveExpense(e: ExpenseDoc): boolean {
   return e.deletedAt == null;
 }
 
+/** Calendar month of the expense (by `expenseDate`, else legacy `createdAt`). */
 export function expenseMonthKey(e: ExpenseDoc): string | null {
-  if (!e.createdAt?.toDate) {
+  const ts = e.expenseDate ?? e.createdAt;
+  if (!ts?.toDate) {
     return null;
   }
-  return monthKeyFromDate(e.createdAt.toDate());
+  return monthKeyFromDate(ts.toDate());
 }
 
 export function activeExpenses(expenses: ExpenseDoc[]): ExpenseDoc[] {
@@ -91,10 +93,11 @@ export function sumExpensesInMonth(
     .reduce((s, e) => s + e.amount, 0);
 }
 
-/** Sum for calendar month range (inclusive) by createdAt. */
+/** Sum for calendar year by expense occurrence date (`expenseDate` or legacy `createdAt`). */
 export function sumExpensesInYear(expenses: ExpenseDoc[], year: number): number {
   return activeExpenses(expenses).reduce((s, e) => {
-    const d = e.createdAt?.toDate();
+    const ts = e.expenseDate ?? e.createdAt;
+    const d = ts?.toDate();
     if (!d || d.getFullYear() !== year) {
       return s;
     }
@@ -194,7 +197,8 @@ export function buildDailySeriesInMonth(
     if (expenseMonthKey(e) !== monthKey) {
       continue;
     }
-    const dt = e.createdAt?.toDate();
+    const ts = e.expenseDate ?? e.createdAt;
+    const dt = ts?.toDate();
     if (!dt) {
       continue;
     }
@@ -241,7 +245,8 @@ export function aggregateByCategory(
     list = list.filter((e) => expenseMonthKey(e) === filter.monthKey);
   } else {
     list = list.filter((e) => {
-      const d = e.createdAt?.toDate();
+      const ts = e.expenseDate ?? e.createdAt;
+      const d = ts?.toDate();
       return d && d.getFullYear() === filter.year;
     });
   }
