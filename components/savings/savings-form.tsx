@@ -36,7 +36,12 @@ import type {
   CategoryDoc,
   CategorySelectOption,
 } from "@/services/category.service";
-import { createSaving, updateSaving, type SavingDoc } from "@/services/savings.service";
+import {
+  createSaving,
+  getSavingBalance,
+  updateSaving,
+  type SavingDoc,
+} from "@/services/savings.service";
 
 import { formatThousandsInput, parseAmountToNumber } from "@/components/expenses/expense-form";
 
@@ -93,7 +98,9 @@ export function SavingsForm({
         (c) => c.id === saving.categoryId
       );
       form.reset({
-        amount: formatThousandsInput(String(Math.round(saving.amount))),
+        amount: formatThousandsInput(
+          String(Math.round(getSavingBalance(saving)))
+        ),
         note: saving.note ?? "",
         categoryId:
           validCategory && saving.categoryId

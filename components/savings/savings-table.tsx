@@ -74,7 +74,11 @@ import {
   type SavingsFilterMode,
   useSavings,
 } from "@/hooks/useSavings";
-import { softDeleteSaving, type SavingDoc } from "@/services/savings.service";
+import {
+  getSavingBalance,
+  softDeleteSaving,
+  type SavingDoc,
+} from "@/services/savings.service";
 import {
   BADGE_UNKNOWN_FALLBACK,
   DISPLAY_FALLBACK_EMPTY,
@@ -330,7 +334,7 @@ export function SavingsTable() {
                         className="transition-colors hover:bg-muted/60"
                       >
                         <TableCell className="text-right font-medium tabular-nums">
-                          {formatMoney(row.amount)}
+                          {formatMoney(getSavingBalance(row))}
                         </TableCell>
                         <TableCell>
                           <SavingsCategoryBadge
@@ -570,7 +574,7 @@ export function SavingsTable() {
                   Số tiền
                 </dt>
                 <dd className="m-0 font-medium tabular-nums">
-                  {formatMoney(detailSaving.amount)}
+                  {formatMoney(getSavingBalance(detailSaving))}
                 </dd>
               </div>
               <div className="flex flex-col gap-1.5">

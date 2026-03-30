@@ -15,17 +15,45 @@ import {
 import { assertCategoryValidForUser } from "@/services/category.service";
 import { db } from "@/lib/firebase";
 
-const SAVINGS_COLLECTION = "savings";
+export const SAVINGS_COLLECTION = "savings";
 
 export type SavingDoc = {
   id: string;
   userId: string;
+  /** Legacy field — kept in sync with `balance` for older UI paths. */
   amount: number;
+  /** Current spendable balance (deducted when spending from savings). */
+  balance: number;
   note: string;
   categoryId: string;
   createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
   deletedAt: Timestamp | null;
 };
+
+/** Current balance for a saving row (prefers `balance`, falls back to legacy `amount`). */
+export function getSavingBalance(s: SavingDoc): number {
+  const b = s.balance;
+  if (typeof b === "number" && Number.isFinite(b)) {
+    return b;
+  }
+  return s.amount;
+}
+
+export function savingBalanceFromRaw(data: Record<string, unknown>): number {
+  const rawBalance = data.balance;
+  const rawAmount = data.amount;
+  const balance =
+    typeof rawBalance === "number"
+      ? rawBalance
+      : Number(rawBalance ?? Number.NaN);
+  const amount =
+    typeof rawAmount === "number"
+      ? rawAmount
+      : Number(rawAmount ?? Number.NaN);
+  const b = Number.isFinite(balance) ? balance : amount;
+  return Number.isFinite(b) ? b : 0;
+}
 
 function mapSavingDoc(docId: string, data: Record<string, unknown>): SavingDoc {
   const rawAmount = data.amount;
@@ -33,13 +61,17 @@ function mapSavingDoc(docId: string, data: Record<string, unknown>): SavingDoc {
     typeof rawAmount === "number"
       ? rawAmount
       : Number(rawAmount ?? Number.NaN);
+  const amountN = Number.isFinite(amount) ? amount : 0;
+  const balanceN = savingBalanceFromRaw(data);
   return {
     id: docId,
     userId: String(data.userId ?? ""),
-    amount: Number.isFinite(amount) ? amount : 0,
+    amount: amountN,
+    balance: balanceN,
     note: String(data.note ?? ""),
     categoryId: String(data.categoryId ?? ""),
     createdAt: (data.createdAt as Timestamp | null) ?? null,
+    updatedAt: (data.updatedAt as Timestamp | null) ?? null,
     deletedAt: (data.deletedAt as Timestamp | null) ?? null,
   };
 }
@@ -98,9 +130,11 @@ export async function createSaving(
   await addDoc(collection(db, SAVINGS_COLLECTION), {
     userId: uid,
     amount: input.amount,
+    balance: input.amount,
     note,
     categoryId: input.categoryId,
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
     deletedAt: null,
   });
 }
@@ -116,8 +150,10 @@ export async function updateSaving(
   const note = input.note.trim();
   await updateDoc(ref, {
     amount: input.amount,
+    balance: input.amount,
     note,
     categoryId: input.categoryId,
+    updatedAt: serverTimestamp(),
   });
 }
 

@@ -32,12 +32,12 @@ import {
   expenseOccurrenceMs,
   type ExpenseDoc,
 } from "@/services/expense.service";
-import type { SavingDoc } from "@/services/savings.service";
+import { getSavingBalance, type SavingDoc } from "@/services/savings.service";
 
 function activeSavingsTotal(savings: SavingDoc[]): number {
   return savings
     .filter((s) => s.deletedAt == null)
-    .reduce((s, row) => s + row.amount, 0);
+    .reduce((acc, row) => acc + getSavingBalance(row), 0);
 }
 
 const RECENT_EXPENSES_LIMIT = 5;

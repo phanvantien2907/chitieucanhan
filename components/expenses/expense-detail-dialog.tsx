@@ -117,6 +117,21 @@ export function ExpenseDetailDialog({
                 {formatMoney(expense.amount)}
               </dd>
             </div>
+            {expense.fromSavings ? (
+              <div>
+                <dt className="text-muted-foreground">Nguồn tiền</dt>
+                <dd>
+                  <Badge variant="secondary" className="rounded-full font-medium">
+                    Từ tiết kiệm
+                  </Badge>
+                  {expense.savingsName ? (
+                    <span className="mt-1 block text-sm">
+                      {expense.savingsName}
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt className="text-muted-foreground">Ghi chú</dt>
               <dd className="m-0">

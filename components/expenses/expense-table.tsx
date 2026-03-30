@@ -74,6 +74,7 @@ import {
   DISPLAY_FALLBACK_EMPTY,
   getSafeBadgeValue,
 } from "@/lib/format";
+import { queryKeys } from "@/lib/query-keys";
 import {
   formatExpenseDateDdMmYyyy,
   softDeleteExpense,
@@ -136,7 +137,10 @@ export function ExpenseTable() {
     try {
       await softDeleteExpense(uid, deleteTarget.id);
       await queryClient.invalidateQueries({
-        queryKey: ["firestore", "expenses", uid],
+        queryKey: queryKeys.expensesAll(uid),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.savings(uid),
       });
       toast.success("Đã xóa khoản chi.");
       setDeleteTarget(null);

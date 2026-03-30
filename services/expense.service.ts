@@ -7,6 +7,7 @@ import {
   limit,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   Timestamp,
   updateDoc,
@@ -15,6 +16,10 @@ import {
 
 import { toStartOfDay } from "@/lib/date";
 import { assertCategoryValidForUser } from "@/services/category.service";
+import {
+  SAVINGS_COLLECTION,
+  savingBalanceFromRaw,
+} from "@/services/savings.service";
 import { db } from "@/lib/firebase";
 
 const EXPENSES_COLLECTION = "expenses";
@@ -37,6 +42,10 @@ export type ExpenseDoc = {
    * Legacy documents may omit this — UI falls back to `createdAt`.
    */
   expenseDate: Timestamp | null;
+  /** When true, `amount` was deducted from `savingsId`. */
+  fromSavings: boolean;
+  savingsId: string | null;
+  savingsName: string | null;
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
   deletedAt: Timestamp | null;
@@ -172,6 +181,15 @@ function mapExpenseDoc(
     note: String(data.note ?? ""),
     categoryId: String(data.categoryId ?? ""),
     expenseDate: parseExpenseDateField(data.expenseDate),
+    fromSavings: Boolean(data.fromSavings ?? false),
+    savingsId:
+      data.savingsId != null && data.savingsId !== ""
+        ? String(data.savingsId)
+        : null,
+    savingsName:
+      data.savingsName != null && String(data.savingsName).trim() !== ""
+        ? String(data.savingsName)
+        : null,
     createdAt: (data.createdAt as Timestamp | null) ?? null,
     updatedAt: (data.updatedAt as Timestamp | null) ?? null,
     deletedAt: (data.deletedAt as Timestamp | null) ?? null,
@@ -211,29 +229,90 @@ export function subscribeExpenses(
   );
 }
 
-async function assertExpenseOwner(uid: string, expenseId: string): Promise<void> {
+async function getExpenseForOwner(
+  uid: string,
+  expenseId: string
+): Promise<ExpenseDoc> {
   const ref = doc(db, EXPENSES_COLLECTION, expenseId);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
     throw new Error("Expense not found.");
   }
-  const data = snap.data() as { userId?: string };
-  if (data.userId !== uid) {
+  const data = snap.data() as Record<string, unknown>;
+  if (String(data.userId ?? "") !== uid) {
     throw new Error("You do not have permission to modify this expense.");
   }
+  return mapExpenseDoc(expenseId, data);
 }
+
+export type CreateExpenseInput = {
+  amount: number;
+  note: string;
+  categoryId: string;
+  expenseDate: Date;
+  fromSavings?: boolean;
+  savingsId?: string | null;
+  savingsName?: string | null;
+};
 
 export async function createExpense(
   uid: string,
-  input: {
-    amount: number;
-    note: string;
-    categoryId: string;
-    expenseDate: Date;
-  }
+  input: CreateExpenseInput
 ): Promise<void> {
   await assertCategoryValidForUser(uid, input.categoryId);
   const note = input.note.trim();
+  const fromSavings = Boolean(input.fromSavings);
+  const savingsId = input.savingsId ?? null;
+  const savingsNameRaw = input.savingsName?.trim() ?? "";
+  const savingsName = savingsNameRaw !== "" ? savingsNameRaw : null;
+
+  if (fromSavings) {
+    if (!savingsId || !savingsName) {
+      throw new Error("Chọn khoản tiết kiệm.");
+    }
+    const code = await generateExpenseCode();
+    const expenseRef = doc(collection(db, EXPENSES_COLLECTION));
+    await runTransaction(db, async (transaction) => {
+      const savingRef = doc(db, SAVINGS_COLLECTION, savingsId);
+      const savingSnap = await transaction.get(savingRef);
+      if (!savingSnap.exists()) {
+        throw new Error("Không tìm thấy khoản tiết kiệm.");
+      }
+      const sData = savingSnap.data() as Record<string, unknown>;
+      if (String(sData.userId ?? "") !== uid) {
+        throw new Error("Không có quyền thao tác.");
+      }
+      if (sData.deletedAt != null) {
+        throw new Error("Khoản tiết kiệm không còn hiệu lực.");
+      }
+      const balance = savingBalanceFromRaw(sData);
+      if (input.amount > balance) {
+        throw new Error("Không đủ số dư tiết kiệm.");
+      }
+      const newBal = balance - input.amount;
+      transaction.update(savingRef, {
+        balance: newBal,
+        amount: newBal,
+        updatedAt: serverTimestamp(),
+      });
+      transaction.set(expenseRef, {
+        userId: uid,
+        code,
+        amount: input.amount,
+        note,
+        categoryId: input.categoryId,
+        expenseDate: dateToExpenseTimestamp(input.expenseDate),
+        fromSavings: true,
+        savingsId,
+        savingsName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        deletedAt: null,
+      });
+    });
+    return;
+  }
+
   const code = await generateExpenseCode();
   await addDoc(collection(db, EXPENSES_COLLECTION), {
     userId: uid,
@@ -242,6 +321,9 @@ export async function createExpense(
     note,
     categoryId: input.categoryId,
     expenseDate: dateToExpenseTimestamp(input.expenseDate),
+    fromSavings: false,
+    savingsId: null,
+    savingsName: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     deletedAt: null,
@@ -258,10 +340,65 @@ export async function updateExpense(
     expenseDate: Date;
   }
 ): Promise<void> {
-  await assertExpenseOwner(uid, expenseId);
   await assertCategoryValidForUser(uid, input.categoryId);
+  const prev = await getExpenseForOwner(uid, expenseId);
   const ref = doc(db, EXPENSES_COLLECTION, expenseId);
   const note = input.note.trim();
+
+  if (
+    prev.fromSavings &&
+    prev.savingsId &&
+    prev.deletedAt == null &&
+    prev.amount !== input.amount
+  ) {
+    await runTransaction(db, async (transaction) => {
+      const expenseSnap = await transaction.get(ref);
+      if (!expenseSnap.exists()) {
+        throw new Error("Expense not found.");
+      }
+      const cur = mapExpenseDoc(
+        expenseId,
+        expenseSnap.data() as Record<string, unknown>
+      );
+      if (String(cur.userId ?? "") !== uid) {
+        throw new Error("You do not have permission to modify this expense.");
+      }
+      if (cur.deletedAt != null) {
+        throw new Error("Không thể sửa khoản đã xóa.");
+      }
+      if (!cur.fromSavings || !cur.savingsId) {
+        throw new Error("Dữ liệu khoản chi không hợp lệ.");
+      }
+      const savingRef = doc(db, SAVINGS_COLLECTION, cur.savingsId);
+      const savingSnap = await transaction.get(savingRef);
+      if (!savingSnap.exists()) {
+        throw new Error("Không tìm thấy khoản tiết kiệm liên kết.");
+      }
+      const sData = savingSnap.data() as Record<string, unknown>;
+      if (String(sData.userId ?? "") !== uid) {
+        throw new Error("Không có quyền thao tác.");
+      }
+      const balance = savingBalanceFromRaw(sData);
+      const newBal = balance + cur.amount - input.amount;
+      if (newBal < 0) {
+        throw new Error("Không đủ số dư tiết kiệm để chỉnh sửa số tiền.");
+      }
+      transaction.update(savingRef, {
+        balance: newBal,
+        amount: newBal,
+        updatedAt: serverTimestamp(),
+      });
+      transaction.update(ref, {
+        amount: input.amount,
+        note,
+        categoryId: input.categoryId,
+        expenseDate: dateToExpenseTimestamp(input.expenseDate),
+        updatedAt: serverTimestamp(),
+      });
+    });
+    return;
+  }
+
   await updateDoc(ref, {
     amount: input.amount,
     note,
@@ -275,8 +412,49 @@ export async function softDeleteExpense(
   uid: string,
   expenseId: string
 ): Promise<void> {
-  await assertExpenseOwner(uid, expenseId);
+  const prev = await getExpenseForOwner(uid, expenseId);
   const ref = doc(db, EXPENSES_COLLECTION, expenseId);
+  if (prev.deletedAt != null) {
+    return;
+  }
+
+  if (prev.fromSavings && prev.savingsId) {
+    await runTransaction(db, async (transaction) => {
+      const expenseSnap = await transaction.get(ref);
+      if (!expenseSnap.exists()) {
+        return;
+      }
+      const cur = mapExpenseDoc(
+        expenseId,
+        expenseSnap.data() as Record<string, unknown>
+      );
+      if (cur.deletedAt != null) {
+        return;
+      }
+      const savingRef = doc(db, SAVINGS_COLLECTION, cur.savingsId!);
+      const savingSnap = await transaction.get(savingRef);
+      if (
+        savingSnap.exists() &&
+        String((savingSnap.data() as { userId?: string }).userId ?? "") ===
+          uid &&
+        (savingSnap.data() as { deletedAt?: unknown }).deletedAt == null
+      ) {
+        const sData = savingSnap.data() as Record<string, unknown>;
+        const balance = savingBalanceFromRaw(sData);
+        const newBal = balance + cur.amount;
+        transaction.update(savingRef, {
+          balance: newBal,
+          amount: newBal,
+          updatedAt: serverTimestamp(),
+        });
+      }
+      transaction.update(ref, {
+        deletedAt: serverTimestamp(),
+      });
+    });
+    return;
+  }
+
   await updateDoc(ref, {
     deletedAt: serverTimestamp(),
   });
