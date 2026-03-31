@@ -5,6 +5,7 @@ import { KeyRound, Lock } from "lucide-react";
 
 import { ChangePasswordDialog } from "@/components/settings/change-password-dialog";
 import { ChangePinDialog } from "@/components/settings/change-pin-dialog";
+import { DeleteAccountDialog } from "@/components/settings/delete-account-dialog";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +39,7 @@ export function SettingsPageClient() {
 
   const [pinOpen, setPinOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -137,6 +139,26 @@ export function SettingsPageClient() {
             </Tooltip>
           </CardContent>
         </Card>
+
+        <Card className="rounded-xl border border-destructive/20 shadow-sm transition-shadow hover:shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg">Xóa tài khoản</CardTitle>
+            <CardDescription>
+              Hành động này không thể hoàn tác
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-11 min-h-11 w-full shrink-0 cursor-pointer touch-manipulation sm:w-auto"
+              disabled={authLoading || !user}
+              onClick={() => setDeleteAccountOpen(true)}
+            >
+              Xóa tài khoản
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {user ? (
@@ -156,6 +178,11 @@ export function SettingsPageClient() {
             onPinChanged={() => {
               void refreshPinState();
             }}
+          />
+          <DeleteAccountDialog
+            open={deleteAccountOpen}
+            onOpenChange={setDeleteAccountOpen}
+            uid={user.uid}
           />
         </>
       ) : null}

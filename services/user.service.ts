@@ -1,4 +1,10 @@
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 
@@ -11,6 +17,8 @@ export type UserDoc = {
   photoURL: string | null;
   createdAt: unknown;
   updatedAt: unknown;
+  /** Soft-delete: when set, login is blocked (see `ensureUserDocumentAndAssertActive`). */
+  deletedAt?: unknown;
 };
 
 export type UpsertUserProfileInput = {
@@ -40,4 +48,12 @@ export async function upsertUserProfile(
     },
     { merge: true }
   );
+}
+
+/** Soft-delete account: sets `deletedAt` on `users/{uid}` (does not remove data). */
+export async function softDeleteUserAccount(uid: string): Promise<void> {
+  const ref = doc(db, USERS_COLLECTION, uid);
+  await updateDoc(ref, {
+    deletedAt: serverTimestamp(),
+  });
 }
