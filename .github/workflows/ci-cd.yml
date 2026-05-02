@@ -12,7 +12,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,12 +31,11 @@ jobs:
           name: docker-image
           path: app.tar
 
-  # 🚀 DEPLOY PRODUCTION (có approval)
   deploy-production:
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: production  # 👉 bật approval ở đây
+    environment: production
 
     steps:
       - name: Download image
@@ -45,14 +43,21 @@ jobs:
         with:
           name: docker-image
 
-      - name: SSH deploy production
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Copy image to server        # ✅ Bước 1: SCP copy file
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_KEY }}
           source: "app.tar"
           target: "/home/ubuntu/"
+
+      - name: SSH deploy production       # ✅ Bước 2: SSH chạy lệnh
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_KEY }}
           script: |
             docker load < /home/ubuntu/app.tar
             docker stop app || true
@@ -63,4 +68,4 @@ jobs:
               --name app \
               -e NODE_ENV=production \
               -e NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} \
-              $IMAGE_NAME:latest
+              my-nextjs-app:latest
