@@ -21,7 +21,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Image
-        run: docker build -t $IMAGE_NAME:latest .
+        run: docker build \
+         --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} \
+         -t $IMAGE_NAME:latest .
 
       - name: Save Docker Image
         run: docker save $IMAGE_NAME:latest > app.tar
