@@ -100,7 +100,7 @@ export default function LoginPage() {
                               {...field}
                               type="email"
                               autoComplete="email"
-                              placeholder="ten@email.com"
+                              placeholder="dia-chi-email@email.com"
                               disabled={isBusy}
                               aria-invalid={!!form.formState.errors.email}
                               className="cursor-text"
