@@ -71,7 +71,7 @@ export default function LoginPage() {
         <Card className="border-border/80 shadow-lg shadow-black/6 ring-1 ring-border/60 dark:shadow-black/30">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Đăng nhập
+              Đăng nhập hệ thống
             </CardTitle>
             <CardDescription>
               Quản lý tài chính cá nhân — danh mục, chi tiêu, tiết kiệm
