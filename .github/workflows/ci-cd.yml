@@ -31,11 +31,11 @@ jobs:
           name: docker-image
           path: app.tar
 
-  deploy-production:
+  deploy-main:
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: production
+    environment: main
 
     steps:
       - name: Download image
