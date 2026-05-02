@@ -51,8 +51,10 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_KEY }}
+          source: "app.tar"
+          target: "/home/ubuntu/"
           script: |
-            docker load < app.tar
+            docker load < /home/ubuntu/app.tar
             docker stop app || true
             docker rm app || true
 
