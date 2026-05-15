@@ -44,5 +44,14 @@ jobs:
         run: |
           echo "=========================================="
           echo "EC2 Public IP: $(terraform output -raw ec2_public_ip)"
-          echo "Hãy copy IP trên vào GitHub Secret: EC2_HOST"
+          echo "Hãy copy IP trên vào GitHub Secret: PROD_HOST"
           echo "=========================================="
+
+      - name: Tự động trigger CI/CD để deploy app   # 🚀 Auto deploy sau apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}            # PAT với scope: workflow
+        run: |
+          gh workflow run ci-cd.yml \
+            --repo ${{ github.repository }} \
+            --ref main
