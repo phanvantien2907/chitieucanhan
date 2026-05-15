@@ -33,10 +33,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: |
-          terraform plan \
-            -var="ssh_public_key=${{ secrets.TF_SSH_PUBLIC_KEY }}" \
-            -out=tfplan
+        run: terraform plan -out=tfplan
 
       - name: Terraform Apply
         if: ${{ github.event.inputs.action == 'apply' }}
