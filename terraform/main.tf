@@ -1,9 +1,3 @@
-# ── KHÔNG tạo key pair mới ────────────────────────────
-# Dùng lại key pair đã có sẵn trên AWS
-data "aws_key_pair" "deployer" {
-  key_name = "do-an-cloud-key-v3-tf"
-}
-
 # ── Security Group ────────────────────────────────────
 resource "aws_security_group" "app_sg" {
   name        = "${var.app_name}-sg"
