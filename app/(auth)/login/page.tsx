@@ -100,7 +100,7 @@ export default function LoginPage() {
                               {...field}
                               type="email"
                               autoComplete="email"
-                              placeholder="dia-chi-email@email.com"
+                              placeholder="email-cua-ban@email.com"
                               disabled={isBusy}
                               aria-invalid={!!form.formState.errors.email}
                               className="cursor-text"
@@ -192,10 +192,7 @@ export default function LoginPage() {
                 disabled
               >
                 {googleLoading ? (
-                  <Loader2
-                    className="size-4 animate-spin"
-                    aria-hidden="true"
-                  />
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 ) : (
                   <GoogleIcon className="size-4" />
                 )}
