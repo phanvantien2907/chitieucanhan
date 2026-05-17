@@ -251,7 +251,7 @@ export function DashboardOverview() {
         <div className="space-y-6">
           <div className="space-y-3">
             <h2 className="text-lg font-semibold tracking-tight">
-              Tình hình nợ
+              Tình hình nợ của bạn
             </h2>
             <DebtSummary
               loading={debtLoading}
