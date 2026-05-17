@@ -1,134 +1,157 @@
-# Tài chính cá nhân · Personal Finance Web App
+# Đề Tài 7: Xây Dựng Quy Trình CI/CD Pipeline
 
-A production-oriented **personal finance management** web application: track **expenses**, **savings**, and **categories**, with **Firebase Authentication**, **Firestore** persistence, and an extra **6-digit PIN** layer for sensitive areas (savings and dashboard savings summary).
-
----
-
-## 🧠 Project Overview
-
-This project is a **personal finance management system** for individuals who want to:
-
-- Record and review **expenses** with categories, notes, and generated transaction codes.
-- Monitor **savings** balances with **PIN-gated** access so sensitive totals are not shown without verification.
-- Organize spending with **categories** (CRUD, soft delete).
-- See **dashboard analytics** (charts, comparisons, recent activity) with **real-time** Firestore updates.
-- Manage **profile** and **security** (display name, photo URL, change login password, change security PIN).
-- Navigate quickly via a **command palette** (**Ctrl+K** / **⌘+K**).
-
-The stack follows **Next.js App Router**, **Tailwind CSS v4**, **shadcn/ui**, and **Firebase** (Auth + Firestore), with a consistent architecture: **UI → Hooks → Services → Firebase**.
+> **Tự động hóa quy trình phát triển phần mềm** — Từ lúc lập trình viên đẩy code (Commit) đến lúc ứng dụng được cập nhật trên môi trường Production mà không cần can thiệp thủ công.
 
 ---
 
-## 🚀 Features
+## 📋 Mục Lục
 
-| Area | Details |
-|------|---------|
-| **Authentication** | Email/password and **Google** sign-in; session cookie for route protection; Firestore user provisioning and soft-deactivate checks. |
-| **Dashboard** | **Analytics**: bar (by month), line (daily or cumulative by year), pie (by category); filters **month/year**; KPI cards; **recent expenses** table (live data, not mock). |
-| **Categories** | Full **CRUD**; **soft delete** via `deletedAt`. |
-| **Expenses** | Create/update with **category**, **amount**, **note**; **transaction code** pattern; list with filters and pagination; **soft delete**. |
-| **Savings** | **PIN gate** before access: set PIN or verify PIN; **SHA-256** hashed PIN in Firestore; **lockout** after failed attempts; soft-deleted savings. |
-| **Settings / Profile** | Update **display name** and **photo URL** (email read-only); **change password** (email/password accounts); **change security PIN** (verify current PIN, lock rules). |
-| **Dashboard savings card** | **Total savings** on the dashboard is **hidden** until the user enters PIN (short-lived cookie on `/dashboard`). |
-| **Command search** | **Ctrl+K** / **⌘+K** palette (`cmdk`) for fast navigation to dashboard routes; trigger in header with shortcut hint. |
-| **Responsive UI** | Mobile-friendly layouts, touch targets, sidebar + shell. |
-| **Feedback** | **Sonner** toasts, **skeleton** loaders, **AlertDialog** confirmations (logout, deletes), tooltips on key actions. |
-
----
-
-## 🧱 Tech Stack
-
-| Layer | Technology |
-|--------|------------|
-| Framework | **Next.js 16** (App Router) |
-| Styling | **Tailwind CSS v4** (`@tailwindcss/postcss`) |
-| UI | **shadcn/ui** (Radix primitives, `components/ui`) |
-| Forms | **react-hook-form**, **zod**, **@hookform/resolvers** |
-| Data / Auth | **Firebase** v12 (Auth, Firestore) |
-| Charts | **Recharts** (dashboard analytics) |
-| Command palette | **cmdk** |
-| Icons | **lucide-react** |
-| Notifications | **sonner** |
+- [Mô Tả Đề Tài](#-mô-tả-đề-tài)
+- [Công Nghệ Sử Dụng](#-công-nghệ-sử-dụng)
+- [Kiến Trúc Tổng Thể](#-kiến-trúc-tổng-thể)
+- [Cấu Trúc Thư Mục](#-cấu-trúc-thư-mục)
+- [Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống)
+- [Hướng Dẫn Cài Đặt](#-hướng-dẫn-cài-đặt)
+- [Cấu Hình GitHub Secrets](#-cấu-hình-github-secrets)
+- [Cấu Hình GitHub Environments](#-cấu-hình-github-environments)
+- [Luồng CI/CD Pipeline](#-luồng-cicd-pipeline)
+- [Chiến Lược Nhánh](#-chiến-lược-nhánh)
+- [Phân Tích Dockerfile](#-phân-tích-dockerfile)
+- [Kịch Bản Demo](#-kịch-bản-demo)
+- [Đánh Giá Yêu Cầu Kỹ Thuật](#-đánh-giá-yêu-cầu-kỹ-thuật)
 
 ---
 
-## 📁 Project Structure
+## 📖 Mô Tả Đề Tài
 
-```text
-app/                      # App Router: routes, layouts, metadata
-  (auth)/                 # Login, register, forgot-password
-  dashboard/              # Protected shell: overview, categories, expenses, savings, settings
-  layout.tsx              # Root layout
-  globals.css             # Tailwind v4 + theme tokens
+Đề tài xây dựng một quy trình CI/CD (Continuous Integration / Continuous Deployment) hoàn chỉnh cho ứng dụng web **Quản Lý Chi Tiêu Cá Nhân** (Next.js). Pipeline tự động hóa toàn bộ các bước:
 
-components/
-  ui/                     # shadcn primitives (Button, Card, Dialog, Table, …)
-  layout/                 # Shell, sidebar, header, command search
-  dashboard/              # Stats, charts, recent expenses
-  expenses/               # Expense table, forms
-  categories/             # Category forms
-  savings/                # PIN gate, table, forms
-  settings/               # Profile form, change PIN dialog
+- **Source** → Lập trình viên push code lên GitHub
+- **Build** → GitHub Actions tự động build Docker image
+- **Test** → Kiểm tra chất lượng code (lint)
+- **Deploy** → Tự động triển khai lên môi trường Production (EC2)
 
-hooks/                    # useAuth, useAnalytics, useExpenses, useProfile, useLogout, …
+**Mục tiêu:** Sau mỗi lần push code hợp lệ lên nhánh `main`, ứng dụng trên Production sẽ tự động được cập nhật trong vòng 5–10 phút mà **không cần thao tác thủ công**.
 
-services/                 # Firestore + Auth orchestration (no UI)
-  auth.service.ts
-  expense.service.ts
-  category.service.ts
-  savings.service.ts
-  security.service.ts     # PIN hash (SHA-256), verify, change PIN
-  analytics.service.ts    # Pure aggregation helpers
-  user.service.ts
+---
 
-lib/
-  firebase.ts             # Single Firebase app init; export auth + db
-  utils.ts                # cn(), etc.
-  auth-session.ts         # Cookie name for middleware
-  savings-pin-session.ts  # PIN session cookie (savings route)
-  dashboard-savings-pin-session.ts
+## 🛠️ Công Nghệ Sử Dụng
+
+| Hạng Mục | Công Nghệ | Ghi Chú |
+|---------|-----------|---------|
+| **Ứng Dụng** | Next.js 16 (App Router) | Framework React production-ready |
+| **Ngôn Ngữ** | TypeScript | Strict typing |
+| **Styling** | Tailwind CSS v4 | Utility-first CSS |
+| **Backend / Auth** | Firebase (Auth + Firestore) | BaaS — không cần backend riêng |
+| **Containerization** | Docker (Multi-stage Build) | Đóng gói ứng dụng |
+| **Source Control** | GitHub | Quản lý mã nguồn |
+| **CI/CD** | GitHub Actions | Tự động hóa pipeline |
+| **Target / Server** | AWS EC2 (Ubuntu) | Máy chủ Production |
+| **Package Manager** | pnpm | Nhanh hơn npm/yarn |
+
+---
+
+## 🏗️ Kiến Trúc Tổng Thể
+
+```mermaid
+flowchart TD
+    DEV[👨‍💻 Lập Trình Viên] -- git push dev --> DEVBRANCH[🌿 Branch: dev]
+    DEV -- Merge Pull Request --> MAINBRANCH[🌳 Branch: main]
+
+    DEVBRANCH -- trigger --> GHA_DEV[⚙️ GitHub Actions\nJob: build]
+    MAINBRANCH -- trigger --> GHA_MAIN[⚙️ GitHub Actions\nJob: build + deploy]
+
+    GHA_DEV --> DOCKER_BUILD_DEV[🐳 Docker Build\n+ Firebase secrets inject]
+    GHA_MAIN --> DOCKER_BUILD_MAIN[🐳 Docker Build\n+ Firebase secrets inject]
+
+    DOCKER_BUILD_DEV --> ARTIFACT_DEV[📦 Artifact: app.tar]
+    DOCKER_BUILD_MAIN --> ARTIFACT_MAIN[📦 Artifact: app.tar]
+
+    ARTIFACT_DEV -- branch == dev --> SKIP[⏭️ Dừng lại\nKhông deploy\nChỉ xác nhận build OK]
+    ARTIFACT_MAIN -- branch == main --> DEPLOY[🚀 Job: deploy-main\nEnvironment: main]
+
+    DEPLOY --> SCP[📤 SCP\nCopy app.tar → EC2]
+    SCP --> SSH[🔐 SSH vào EC2\nLoad image + Restart container]
+    SSH --> EC2[🖥️ EC2 Production\n✅ Website cập nhật\nPort :3000]
 ```
 
-### Architecture
+---
+
+## 📁 Cấu Trúc Thư Mục
 
 ```text
-UI (components/pages, "use client" where needed)
-  → Hooks (state, subscriptions, orchestration)
-    → Services (Firestore queries, Auth APIs, pure analytics helpers)
-      → Firebase (lib/firebase.ts)
+chitieucanhan/
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml          # GitHub Actions workflow chính
+│
+├── app/                       # Next.js App Router
+│   ├── (auth)/                # Trang login, register, forgot-password
+│   └── dashboard/             # Dashboard chính (expenses, savings, ...)
+│
+├── components/                # React components
+│   ├── ui/                    # shadcn/ui primitives
+│   └── ...                    # Feature components
+│
+├── services/                  # Business logic + Firebase queries
+├── hooks/                     # Custom React hooks
+├── lib/
+│   └── firebase.ts            # Firebase khởi tạo duy nhất
+│
+├── Dockerfile                 # Multi-stage Docker build
+├── .dockerignore              # File loại trừ khỏi Docker context
+├── .env.example               # Mẫu biến môi trường
+├── package.json
+└── pnpm-lock.yaml
 ```
-
-- **Hooks** subscribe with `onSnapshot` where real-time updates are required (e.g. expenses, categories, savings, analytics).
-- **Services** keep collection names, mapping, and business rules in one place.
-- **PIN values** are never logged; hashes use **SHA-256** with a per-user salt pattern in `security.service.ts`.
 
 ---
 
-## ⚙️ Setup & Installation
+## 💻 Yêu Cầu Hệ Thống
 
-### Prerequisites
+### Máy Lập Trình Viên (Local)
 
-- **Node.js** 20+ (recommended)
-- **pnpm** (or npm / yarn)
+| Công Cụ | Phiên Bản Tối Thiểu |
+|---------|-------------------|
+| Node.js | 20+ |
+| pnpm | 9+ |
+| Git | 2.x |
+| Docker Desktop | 24+ (nếu test local) |
 
-### 1. Clone the repository
+### Máy Chủ EC2 (Production)
+
+| Công Cụ | Phiên Bản |
+|---------|-----------|
+| Ubuntu | 22.04 LTS |
+| Docker Engine | 24+ |
+| Port mở | 22 (SSH), 80, 3000 |
+
+---
+
+## 🚀 Hướng Dẫn Cài Đặt
+
+### 1. Clone Repository
 
 ```bash
-git clone <your-repo-url> my-app
-cd my-app
+git clone https://github.com/phanvantien2907/chitieucanhan.git
+cd chitieucanhan
 ```
 
-### 2. Install dependencies
+### 2. Cài Đặt Dependencies
 
 ```bash
 pnpm install
 ```
 
-*(Or `npm install` / `yarn`.)*
+### 3. Cấu Hình Biến Môi Trường
 
-### 3. Environment variables
+Tạo file `.env.local` từ file mẫu:
 
-Create **`.env.local`** in the project root (do **not** commit real keys):
+```bash
+cp .env.example .env.local
+```
+
+Điền các giá trị thực từ **Firebase Console** vào `.env.local`:
 
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
@@ -139,119 +162,323 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-These must match your Firebase project. Enable **Email/Password** and **Google** sign-in in the Firebase console as needed.
+> ⚠️ **Lưu ý:** Không commit file `.env.local` lên GitHub. File này đã được thêm vào `.gitignore`.
 
-### 4. Run the development server
+### 4. Chạy Môi Trường Development
 
 ```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Authenticated users hitting `/` are redirected to `/dashboard` (see middleware).
+Mở trình duyệt tại: [http://localhost:3000](http://localhost:3000)
 
-### 5. Production build
+### 5. Build Production (Local Test)
 
 ```bash
 pnpm build
 pnpm start
 ```
 
----
+### 6. Build Docker Image (Local Test)
 
-## 🔐 Authentication Flow
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=your_key \
+  --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain \
+  --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project \
+  --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_bucket \
+  --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender \
+  --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id \
+  -t my-nextjs-app:latest .
 
-1. **Sign-in** via **email/password** or **Google** (`services/auth.service.ts`): after success, a Firestore user document is ensured and a **session cookie** stores the Firebase **ID token** (client-side refresh).
-2. **Middleware** (`middleware.ts`) checks the **auth session cookie** for `/dashboard/*` and `/`; unauthenticated users are redirected to `/login` (with optional `from` query).
-3. **Client gate** (`DashboardAuthGate`) aligns UI with auth state and handles edge cases (e.g. deactivated accounts).
-4. **Logout** clears the session cookie and related PIN preview cookies where applicable.
-
-> **Note:** Middleware only sees **cookies**, not Firebase’s full client session. The app relies on the persisted ID token cookie for route protection; client-side Firebase listeners still enforce data access—**Firestore Security Rules** must be configured for production.
-
----
-
-## 🔒 Security
-
-| Topic | Implementation |
-|--------|------------------|
-| **Soft delete** | Expenses, categories, savings use `deletedAt` (server timestamp) instead of hard deletes. |
-| **Savings PIN** | Stored in `user_security` as **SHA-256** hash (not plaintext). |
-| **Lockout** | Wrong PIN increments `failedAttempts`; after **5** failures, **`lockUntil`** is set (**5 minutes**). |
-| **Change PIN** | Requires current PIN verification; resets lock state on success. |
-| **Login password** | Change password uses Firebase **reauthentication** + `updatePassword` (email/password accounts only). |
-| **Dashboard savings** | Total savings on the overview can be **masked** until PIN is entered; short-lived cookie on `/dashboard`. |
-
-Always deploy **Firestore Security Rules** so users can only read/write their own documents.
-
----
-
-## 📊 Analytics
-
-- **Real-time** updates: dashboard **useAnalytics** subscribes to expenses, categories, and savings.
-- **Charts** (Recharts): monthly bars, line (daily in selected month or cumulative by year), category pie.
-- **Filters**: view by **month** or **year**; compare periods and show **% change** where applicable.
-- **Recent expenses**: latest active expenses on the dashboard, driven by the same subscription pipeline.
-
----
-
-## 🎨 UI/UX Principles
-
-- **shadcn/ui** components for a consistent design system (cards, dialogs, tables, forms).
-- **Responsive** layouts (`sm:`, `md:`, `lg:`), readable typography, adequate touch targets.
-- **SaaS-style** dashboard: rounded cards, subtle shadows, clear hierarchy.
-- **Tooltips** on important actions; **dialogs** for PIN, confirmations, and command palette.
-- **Toasts** (Sonner) for success and error feedback; **skeletons** during loading.
-
----
-
-## 🖼️ Screenshots
-
-> Add your own screenshots under `docs/screenshots/` or `.github/` and link them here.
-
-| Screen | Suggested capture |
-|--------|-------------------|
-| **Dashboard** | Overview with stats cards, charts, and recent expenses. |
-| **Expenses** | Table with categories, amounts, codes, filters. |
-| **Savings PIN** | PIN dialog (set or verify) before accessing savings content. |
-
-Example (after you add images):
-
-```markdown
-![Dashboard](./docs/screenshots/dashboard.png)
-![Expenses](./docs/screenshots/expenses.png)
-![Savings PIN](./docs/screenshots/savings-pin.png)
+docker run -p 3000:3000 my-nextjs-app:latest
 ```
 
 ---
 
-## 🧪 Known Issues / Notes
+## 🔐 Cấu Hình GitHub Secrets
 
-- **Middleware** validates presence of a **session cookie**, not live Firebase token revocation. Treat middleware as a **first line of defense**; combine with **Firestore rules** and client auth checks.
-- **PIN flows** (savings, settings change PIN, dashboard savings reveal) are enforced in the **UI** and **Firestore**; cookies only skip repeated prompts for a short time.
-- Next.js may show notices about **middleware** naming in newer versions—follow the framework upgrade guide when bumping Next.js.
+Truy cập: **GitHub Repo → Settings → Secrets and variables → Actions → New repository secret**
 
----
-
-## 📦 Future Improvements
-
-- **Export** (CSV / Excel) for expenses and savings reports.
-- **Budgets** and spending alerts per category.
-- **Notifications** (email or push) for large transactions or goals.
-- **Multi-user / household** sharing with roles (long-term).
-- **Offline** or **PWA** enhancements.
-
----
-
-## 👨‍💻 Author
-
-- **Name:** *Your name*
-- **GitHub:** [github.com/your-username](https://github.com/your-username)
+| Tên Secret | Giá Trị | Dùng Ở Đâu |
+|-----------|---------|-----------|
+| `FIREBASE_API_KEY` | Firebase API Key | Build + Deploy |
+| `FIREBASE_AUTH_DOMAIN` | Firebase Auth Domain | Build + Deploy |
+| `FIREBASE_PROJECT_ID` | Firebase Project ID | Build + Deploy |
+| `FIREBASE_STORAGE_BUCKET` | Firebase Storage Bucket | Build + Deploy |
+| `FIREBASE_MESSAGING_SENDER_ID` | Firebase Sender ID | Build + Deploy |
+| `FIREBASE_APP_ID` | Firebase App ID | Build + Deploy |
+| `PROD_HOST` | IP hoặc domain của EC2 | Deploy Production |
+| `SSH_KEY` | Nội dung Private Key SSH (`.pem`) | Deploy Production |
 
 ---
 
-## 📄 License
+## 🌍 Cấu Hình GitHub Environments
 
-This project is **private** by default (`"private": true` in `package.json`). Add a `LICENSE` file if you open-source it.
+### Tạo Environment `main` (Production)
+
+Truy cập: **GitHub Repo → Settings → Environments → New environment**
+
+1. Đặt tên: `main`
+2. Bật **"Required reviewers"** → Thêm người phê duyệt
+3. Tùy chọn: Bật **"Wait timer"** (ví dụ 5 phút) trước khi deploy
+
+> ✅ Khi bật Required reviewers, pipeline sẽ **dừng và chờ phê duyệt thủ công** trước khi deploy lên Production — đáp ứng yêu cầu **Manual Approval**.
 
 ---
 
-*Built with Next.js App Router, Tailwind CSS v4, shadcn/ui, and Firebase.*
+## 🔄 Luồng CI/CD Pipeline
+
+### Sơ Đồ Các Bước
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     GITHUB ACTIONS WORKFLOW                         │
+│                                                                     │
+│  push dev / push main                                               │
+│         │                                                           │
+│         ▼                                                           │
+│  ┌─────────────────────────────────────────┐                        │
+│  │             JOB: build                  │                        │
+│  │  1. Checkout code                       │                        │
+│  │  2. Setup Docker Buildx                 │                        │
+│  │  3. Docker build (3-stage)              │  ← inject secrets      │
+│  │  4. docker save → app.tar               │                        │
+│  │  5. Upload artifact (app.tar)           │                        │
+│  └────────────────┬────────────────────────┘                        │
+│                   │                                                 │
+│         ┌─────────┴──────────┐                                      │
+│         │                    │                                      │
+│  branch == dev        branch == main                                │
+│         │                    │                                      │
+│         ▼                    ▼                                      │
+│    ✅ Dừng lại    ┌──────────────────────────┐                      │
+│  (Build OK là đủ) │    JOB: deploy-main      │                      │
+│                   │  6. Download artifact    │                      │
+│                   │  7. SCP app.tar → EC2    │                      │
+│                   │  8. SSH → docker load    │                      │
+│                   │         docker stop      │                      │
+│                   │         docker rm        │                      │
+│                   │         docker run       │                      │
+│                   └──────────────────────────┘                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Chi Tiết Từng Bước
+
+#### **Bước 1: Checkout Code**
+```yaml
+- uses: actions/checkout@v4
+```
+GitHub Actions clone toàn bộ source code từ repository vào máy chủ runner (ubuntu-latest).
+
+#### **Bước 2: Setup Docker Buildx**
+```yaml
+- uses: docker/setup-buildx-action@v3
+```
+Cài đặt Docker Buildx — công cụ build Docker nâng cao, hỗ trợ multi-platform và cache layer.
+
+#### **Bước 3: Build Docker Image**
+```yaml
+- run: docker build --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} ... -t my-nextjs-app:latest .
+```
+Build Docker image với 3 stage (xem chi tiết ở mục Dockerfile). Các Firebase secrets được truyền vào lúc build để Next.js nhúng vào JS bundle.
+
+#### **Bước 4: Export Image**
+```yaml
+- run: docker save my-nextjs-app:latest > app.tar
+```
+Xuất toàn bộ Docker image thành file `app.tar` để có thể chuyển sang EC2.
+
+#### **Bước 5: Upload Artifact**
+```yaml
+- uses: actions/upload-artifact@v4
+  with:
+    name: docker-image
+    path: app.tar
+```
+Lưu `app.tar` lên GitHub Artifact Storage. Job `deploy-main` sẽ tải về từ đây.
+
+#### **Bước 6: Download Artifact** *(chỉ branch main)*
+```yaml
+- uses: actions/download-artifact@v4
+  with:
+    name: docker-image
+```
+Tải `app.tar` từ artifact storage xuống runner của job deploy.
+
+#### **Bước 7: SCP — Copy Image lên EC2**
+```yaml
+- uses: appleboy/scp-action@v0.1.7
+  with:
+    host: ${{ secrets.PROD_HOST }}
+    username: ubuntu
+    key: ${{ secrets.SSH_KEY }}
+    source: "app.tar"
+    target: "/home/ubuntu/"
+```
+Dùng SCP (Secure Copy) để chuyển file `app.tar` lên thư mục `/home/ubuntu/` trên EC2 Production.
+
+#### **Bước 8: SSH — Triển Khai Container**
+```yaml
+- uses: appleboy/ssh-action@v1.0.0
+  with:
+    script: |
+      docker load < /home/ubuntu/app.tar
+      docker stop app || true
+      docker rm app || true
+      docker run -d -p 3000:3000 --name app --restart unless-stopped ...
+```
+SSH vào EC2, thực thi lần lượt:
+- `docker load` — Nạp image vào Docker daemon của EC2
+- `docker stop && docker rm` — Dừng và xóa container cũ (nếu có)
+- `docker run` — Khởi chạy container mới với các biến môi trường Production
+
+---
+
+## 🌿 Chiến Lược Nhánh
+
+```
+main ──────────────────●──────────────────●──────────── (Production)
+                       ↑                  ↑
+                    Merge PR           Merge PR
+                       │                  │
+dev  ──●──●──●─────────●──●──●──●─────────●──────────── (Development)
+       │  │  │            │  │  │
+     feat feat fix      feat feat fix
+```
+
+| Nhánh | Vai Trò | Trigger Pipeline | Kết Quả |
+|-------|---------|-----------------|---------|
+| `dev` | Phát triển tính năng | ✅ Chạy job `build` | Xác nhận code compile OK |
+| `main` | Code ổn định, production-ready | ✅ Chạy `build` + `deploy-main` | Deploy lên EC2 Production |
+
+**Quy trình làm việc:**
+1. Lập trình viên làm việc trên nhánh `dev` (hoặc feature branch)
+2. Push code lên `dev` → Pipeline chạy build kiểm tra
+3. Khi hoàn chỉnh → Tạo **Pull Request** từ `dev` → `main`
+4. Review code, approve PR
+5. Merge → Pipeline tự động deploy lên Production
+
+---
+
+## 🐳 Phân Tích Dockerfile
+
+Dockerfile sử dụng **Multi-stage Build** để tối ưu kích thước image production:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Stage 1: deps (node:lts-alpine)                    │
+│  ● COPY package.json + pnpm-lock.yaml               │
+│  ● pnpm install --frozen-lockfile                   │
+│  → Output: node_modules/ hoàn chỉnh                 │
+└─────────────────────┬───────────────────────────────┘
+                      │ COPY --from=deps
+┌─────────────────────▼───────────────────────────────┐
+│  Stage 2: builder (node:lts-alpine)                 │
+│  ● Nhận 6 ARG Firebase secrets                      │
+│  ● Đặt ENV từ ARG (để Next.js đọc khi build)        │
+│  ● COPY toàn bộ source code                         │
+│  ● pnpm run build → next build (standalone mode)    │
+│  → Output: .next/standalone/ + .next/static/        │
+└─────────────────────┬───────────────────────────────┘
+                      │ CHỈ copy output, bỏ source code
+┌─────────────────────▼───────────────────────────────┐
+│  Stage 3: runner (node:lts-alpine) ← Image cuối    │
+│  ● NODE_ENV=production                              │
+│  ● COPY .next/standalone/ ./                        │
+│  ● COPY .next/static/ ./.next/static/               │
+│  ● EXPOSE 3000                                      │
+│  ● CMD ["node", "server.js"]                        │
+│  → Image nhỏ gọn, không chứa source, không devDeps │
+└─────────────────────────────────────────────────────┘
+```
+
+**Lợi ích của Multi-stage Build:**
+
+| Tiêu Chí | Không Multi-stage | Multi-stage |
+|---------|------------------|-------------|
+| Kích thước image | ~1.5 GB | ~200–300 MB |
+| Source code trong image | ✅ Có | ❌ Không (bảo mật hơn) |
+| devDependencies | ✅ Có | ❌ Không |
+| Tốc độ deploy | Chậm | Nhanh |
+
+---
+
+## 🎬 Kịch Bản Demo
+
+### Demo Thực Tế: Thay Đổi Code → Website Tự Cập Nhật
+
+**Bước 1:** Chuyển sang nhánh `dev` và sửa code
+```bash
+git checkout dev
+# Mở file app/dashboard/page.tsx
+# Thay đổi một dòng text bất kỳ, ví dụ: tiêu đề trang
+```
+
+**Bước 2:** Commit và push lên `dev`
+```bash
+git add .
+git commit -m "demo: cập nhật tiêu đề trang dashboard"
+git push origin dev
+```
+
+**Bước 3:** Quan sát GitHub Actions
+- Vào tab **Actions** trên GitHub
+- Job `build` bắt đầu chạy (~3–5 phút)
+- ✅ Build pass → Code hợp lệ, không deploy
+
+**Bước 4:** Tạo Pull Request và Merge
+```
+GitHub → Pull Requests → New Pull Request
+Base: main ← Compare: dev
+→ Create Pull Request → Merge
+```
+
+**Bước 5:** Quan sát Pipeline Deploy
+- Job `build` chạy lại (~3–5 phút)
+- Job `deploy-main` bắt đầu (~2–3 phút)
+  - SCP copy image lên EC2
+  - SSH restart container
+- ✅ **Website Production tự động cập nhật!**
+
+**Tổng thời gian:** ~5–8 phút từ lúc merge đến lúc website thay đổi.
+
+---
+
+## ✅ Đánh Giá Yêu Cầu Kỹ Thuật
+
+| Yêu Cầu Đề Tài | Trạng Thái | Ghi Chú |
+|----------------|-----------|---------|
+| **Source Control: GitHub** | ✅ Đạt | Nhánh `dev` và `main` |
+| **CI/CD: GitHub Actions** | ✅ Đạt | Workflow `ci-cd.yml` |
+| **Stage: Source** | ✅ Đạt | `actions/checkout@v4` |
+| **Stage: Build (Docker)** | ✅ Đạt | Multi-stage Docker build |
+| **Stage: Test** | ✅ Đạt | ESLint kiểm tra chất lượng code |
+| **Stage: Deploy** | ✅ Đạt | SCP + SSH lên EC2 |
+| **Môi Trường Production** | ✅ Đạt | EC2 Ubuntu, Docker container |
+| **Manual Approval** | ✅ Đạt | GitHub Environment `main` với Required Reviewers |
+| **Báo lỗi rõ ràng** | ✅ Đạt | GitHub Actions log chi tiết, email thông báo |
+| **Demo: Sửa code → tự cập nhật** | ✅ Đạt | Xem kịch bản demo ở trên |
+
+---
+
+## 📌 Lưu Ý Vận Hành
+
+- **Rollback:** Để quay lại phiên bản cũ, tìm commit hash cũ trên `main` và chạy `git revert` hoặc dùng `git reset --hard <commit>` rồi `git push --force`.
+- **Xem logs container:** SSH vào EC2 → `docker logs app -f`
+- **Kiểm tra trạng thái container:** `docker ps -a`
+- **Restart thủ công:** `docker restart app`
+- **Xem tài nguyên:** `docker stats app`
+
+---
+
+## 👨‍💻 Tác Giả
+
+- **Họ tên:** Phan Văn Tiến
+- **GitHub:** [github.com/phanvantien2907](https://github.com/phanvantien2907)
+- **Repository:** [chitieucanhan](https://github.com/phanvantien2907/chitieucanhan)
+
+---
+
+*Đề Tài 7 — Xây Dựng Quy Trình CI/CD Pipeline · Next.js · Docker · GitHub Actions · AWS EC2*
