@@ -55,18 +55,20 @@ const ChartExpense = dynamic(
         <Skeleton className="h-[min(50vh,280px)] w-full rounded-xl" />
       </div>
     ),
-  }
+  },
 );
 
 const ChartCategory = dynamic(
   () =>
-    import("@/components/dashboard/chart-category").then((m) => m.ChartCategory),
+    import("@/components/dashboard/chart-category").then(
+      (m) => m.ChartCategory,
+    ),
   {
     ssr: false,
     loading: () => (
       <Skeleton className="h-[min(50vh,280px)] w-full rounded-xl" />
     ),
-  }
+  },
 );
 
 const DebtChart = dynamic(
@@ -79,7 +81,7 @@ const DebtChart = dynamic(
         <Skeleton className="h-[200px] w-full rounded-xl" />
       </div>
     ),
-  }
+  },
 );
 
 const DebtSummary = dynamic(
@@ -94,18 +96,18 @@ const DebtSummary = dynamic(
         <Skeleton className="h-32 rounded-xl" />
       </div>
     ),
-  }
+  },
 );
 
 const RecentExpensesTable = dynamic(
   () =>
     import("@/components/dashboard/recent-expenses-table").then(
-      (m) => m.RecentExpensesTable
+      (m) => m.RecentExpensesTable,
     ),
   {
     ssr: false,
     loading: () => <Skeleton className="h-48 w-full rounded-xl" />,
-  }
+  },
 );
 
 function monthOptionLabel(key: string): string {
@@ -157,8 +159,12 @@ export function DashboardOverview() {
     resetFiltersToCurrent,
   } = useAnalytics();
 
-  const { loading: debtLoading, analytics: debtAnalytics, hasAnyDebt, debts } =
-    useDebtAnalytics();
+  const {
+    loading: debtLoading,
+    analytics: debtAnalytics,
+    hasAnyDebt,
+    debts,
+  } = useDebtAnalytics();
 
   const receivableSensitive =
     !debtLoading && debtAnalytics.pendingReceivable > 0;
@@ -179,7 +185,7 @@ export function DashboardOverview() {
 
   const chartAnalytics = useMemo(
     () => computeDebtAnalyticsForCharts(debts, receivableUnlocked),
-    [debts, receivableUnlocked]
+    [debts, receivableUnlocked],
   );
 
   const barTitle =
@@ -209,7 +215,7 @@ export function DashboardOverview() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Tổng quan
+          Tổng quan hệ thống
         </h1>
         <p className="text-muted-foreground text-sm md:text-base">
           Theo dõi chi tiêu, tiết kiệm và danh mục trong một nơi.
@@ -264,9 +270,7 @@ export function DashboardOverview() {
           <DebtChart
             loading={debtLoading}
             analytics={chartAnalytics}
-            chartsReceivableMasked={
-              receivableSensitive && !receivableUnlocked
-            }
+            chartsReceivableMasked={receivableSensitive && !receivableUnlocked}
           />
         </div>
       ) : null}
@@ -325,8 +329,7 @@ export function DashboardOverview() {
                       : " ml-1 text-red-600 dark:text-red-400"
                   }
                 >
-                  (
-                  {comparisonLabel.pct >= 0 ? "+" : ""}
+                  ({comparisonLabel.pct >= 0 ? "+" : ""}
                   {comparisonLabel.pct.toLocaleString("vi-VN", {
                     maximumFractionDigits: 1,
                   })}
@@ -352,7 +355,10 @@ export function DashboardOverview() {
               value={viewMode}
               onValueChange={(v) => setViewMode(v as AnalyticsViewMode)}
             >
-              <SelectTrigger id="view-mode" className="h-10 w-full cursor-pointer">
+              <SelectTrigger
+                id="view-mode"
+                className="h-10 w-full cursor-pointer"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -372,7 +378,10 @@ export function DashboardOverview() {
                 value={selectedMonthKey}
                 onValueChange={setSelectedMonthKey}
               >
-                <SelectTrigger id="pick-month" className="h-10 w-full cursor-pointer">
+                <SelectTrigger
+                  id="pick-month"
+                  className="h-10 w-full cursor-pointer"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -391,7 +400,10 @@ export function DashboardOverview() {
                 value={String(selectedYear)}
                 onValueChange={(v) => setSelectedYear(Number(v))}
               >
-                <SelectTrigger id="pick-year" className="h-10 w-full cursor-pointer">
+                <SelectTrigger
+                  id="pick-year"
+                  className="h-10 w-full cursor-pointer"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
