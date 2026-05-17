@@ -12,6 +12,8 @@ on:
 
 jobs:
   terraform:
+    permissions:
+      actions: write   # ← Cần thiết để gh workflow run trigger workflow khác
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -50,7 +52,7 @@ jobs:
       - name: Tự động trigger CI/CD để deploy app   # 🚀 Auto deploy sau apply
         if: ${{ github.event.inputs.action == 'apply' }}
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}            # PAT với scope: workflow
+          GH_TOKEN: ${{ github.token }}              # ✅ Dùng built-in token, không cần tạo PAT
         run: |
           gh workflow run ci-cd.yml \
             --repo ${{ github.repository }} \
