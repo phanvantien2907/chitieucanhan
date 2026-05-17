@@ -179,20 +179,29 @@ pnpm build
 pnpm start
 ```
 
-### 6. Build Docker Image (Local Test)
+### 6. Build và Chạy Docker Local (Dùng Docker Compose)
+
+Thay vì gõ tay từng `--build-arg`, dùng `docker-compose.yml` để tự động đọc giá trị từ file `.env`:
 
 ```bash
-docker build \
-  --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=your_key \
-  --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain \
-  --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project \
-  --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_bucket \
-  --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender \
-  --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id \
-  -t my-nextjs-app:latest .
+# Build image + khởi chạy container (1 lệnh duy nhất)
+docker compose up --build
 
-docker run -p 3000:3000 my-nextjs-app:latest
+# Hoặc chỉ build image (không chạy)
+docker compose build
+
+# Chạy container từ image đã build (không build lại)
+docker compose up
+
+# Dừng container
+docker compose down
 ```
+
+Mở trình duyệt tại: [http://localhost:3000](http://localhost:3000)
+
+> ✅ **`docker compose up --build`** tự đọc file `.env` ở root project và truyền các giá trị Firebase vào Docker build-args — không cần hardcode bất cứ thứ gì.
+>
+> 🐳 Image sau khi build sẽ có tên `chitieucanhan-local`, container sẽ có tên `chitieucanhan-local`.
 
 ---
 
