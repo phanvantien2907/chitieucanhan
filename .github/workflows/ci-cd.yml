@@ -4,7 +4,12 @@ on:
   push:
     branches:
       - main
-      - develop
+      - dev
+      - phanvantien
+      - pvt
+      - nguyendinhquang
+      - dangthihaiquy
+      - dq
 
 env:
   IMAGE_NAME: my-nextjs-app
@@ -43,7 +48,7 @@ jobs:
         with:
           name: docker-image
 
-      - name: Copy image to server        # ✅ Bước 1: SCP copy file
+      - name: Copy image to server # ✅ Bước 1: SCP copy file
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.PROD_HOST }}
@@ -52,7 +57,7 @@ jobs:
           source: "app.tar"
           target: "/home/ubuntu/"
 
-      - name: SSH deploy production       # ✅ Bước 2: SSH chạy lệnh
+      - name: SSH deploy production # ✅ Bước 2: SSH chạy lệnh
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.PROD_HOST }}
