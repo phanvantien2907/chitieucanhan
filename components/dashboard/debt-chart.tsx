@@ -103,7 +103,7 @@ export function DebtChart({
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Thống kê nợ</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Thống kê nợ của bạn</h2>
         <p className="text-muted-foreground text-sm">
           Phải thu / phải trả, theo người (pending), và tỷ lệ đã thanh toán
         </p>
