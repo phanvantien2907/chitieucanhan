@@ -215,7 +215,7 @@ export function DashboardOverview() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Tổng quan hệ thống
+          Tổng quan hệ thống của tôi
         </h1>
         <p className="text-muted-foreground text-sm md:text-base">
           Theo dõi chi tiêu, tiết kiệm và danh mục trong một nơi.
