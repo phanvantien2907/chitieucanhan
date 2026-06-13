@@ -218,7 +218,7 @@ export function DashboardOverview() {
           Tổng quan hệ thống
         </h1>
         <p className="text-muted-foreground text-sm md:text-base">
-          Theo dõi chi tiêu, tiết kiệm và danh mục trong một nơi.
+          Theo dõi chi tiêu, tiết kiệm và danh mục trong mọi nơi.
         </p>
       </div>
 
