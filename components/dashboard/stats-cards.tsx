@@ -36,7 +36,10 @@ export type SavingsPinVisibility = {
 };
 
 /** Chi tiêu giảm so với tháng trước → tốt (xanh). */
-function formatExpenseDelta(pct: number | null): { text: string; good: boolean } {
+function formatExpenseDelta(pct: number | null): {
+  text: string;
+  good: boolean;
+} {
   if (pct == null) {
     return { text: "Chưa có so sánh", good: true };
   }
@@ -117,7 +120,7 @@ export function StatsCards({
       deltaClassName: "text-muted-foreground",
     },
     {
-      title: "Giao dịch tháng này",
+      title: "Giao dịch của tháng này",
       value: String(expenseCountThisMonth),
       delta: formatVndFull(expenseLastCalendarMonth),
       description: "tổng chi tháng trước",
@@ -137,28 +140,25 @@ export function StatsCards({
             <div className="min-w-0 flex-1 space-y-1">
               <CardDescription>{item.title}</CardDescription>
               <CardTitle className="text-2xl font-semibold tabular-nums tracking-tight">
-                {loading || (item.title === "Tổng tiết kiệm" && savingsPin?.pinLoading)
-                  ? (
-                      <Skeleton className="h-8 w-28 rounded-md" />
-                    )
-                  : item.title === "Tổng tiết kiệm" && item.value === "masked"
-                    ? (
-                        <span
-                          className="text-muted-foreground font-mono tracking-[0.25em] select-none"
-                          aria-hidden
-                        >
-                          •••••• ₫
-                        </span>
-                      )
-                    : item.title === "Tổng tiết kiệm" && item.value === "no-pin"
-                      ? (
-                          <span className="text-muted-foreground text-lg font-normal">
-                            Chưa thiết lập PIN
-                          </span>
-                        )
-                      : (
-                          item.value
-                        )}
+                {loading ||
+                (item.title === "Tổng tiết kiệm" && savingsPin?.pinLoading) ? (
+                  <Skeleton className="h-8 w-28 rounded-md" />
+                ) : item.title === "Tổng tiết kiệm" &&
+                  item.value === "masked" ? (
+                  <span
+                    className="text-muted-foreground font-mono tracking-[0.25em] select-none"
+                    aria-hidden
+                  >
+                    •••••• ₫
+                  </span>
+                ) : item.title === "Tổng tiết kiệm" &&
+                  item.value === "no-pin" ? (
+                  <span className="text-muted-foreground text-lg font-normal">
+                    Chưa thiết lập PIN
+                  </span>
+                ) : (
+                  item.value
+                )}
               </CardTitle>
             </div>
             <div className="bg-muted/80 text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 group-hover:bg-muted/90">
