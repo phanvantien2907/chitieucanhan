@@ -41,42 +41,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: main
-
     steps:
-      - name: Download image
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-
-      - name: Copy image to server # ✅ Bước 1: SCP copy file
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SSH_KEY }}
-          source: "app.tar"
-          target: "/home/ubuntu/"
-
-      - name: SSH deploy production # ✅ Bước 2: SSH chạy lệnh
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            docker load < /home/ubuntu/app.tar
-            docker stop app || true
-            docker rm app || true
-
-            docker run -d \
-              -p 3000:3000 \
-              --name app \
-              --restart unless-stopped \
-              -e NODE_ENV=production \
-              -e NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} \
-              -e NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }} \
-              -e NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }} \
-              -e NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }} \
-              -e NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }} \
-              -e NEXT_PUBLIC_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }} \
-              my-nextjs-app:latest
+      - name: Trigger Render Deploy Hook
+        run: |
+          curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "✅ Đã gửi lệnh deploy lên Render.com thành công!"
